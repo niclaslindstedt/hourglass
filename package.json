@@ -17,6 +17,7 @@
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
     "icons": "node scripts/generate-icons.mjs",
+    "blender": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/blender.mjs",
     "tauri": "npm --prefix tauri run start",
     "tauri:fast": "npm --prefix tauri run start:fast",
     "tauri:bundle": "npm --prefix tauri run bundle",

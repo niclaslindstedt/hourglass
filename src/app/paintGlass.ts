@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import type { Frame, Post } from "./frame.ts";
-import type { Pt } from "./paint.ts";
+import { drawSprite, type Pt } from "./paint.ts";
 import type { Layout } from "./glass.ts";
 import { GLASS, TOP } from "./look.ts";
 import { LIGHT, axisY, css, ellipseOf, project, rgbOf } from "./scene.ts";
@@ -115,6 +115,23 @@ export function paintGlassFront(
     2 * cam.scale,
   );
   ctx.restore();
+  const sp = frame.sprites;
+  if (sp?.glassMultiply && sp.glassAdd) {
+    // The modelled glass, in its two passes: what the glass takes away —
+    // its rim, the thick of the waist, the Fresnel darkening where the
+    // wall turns edge on — multiplied over what is behind it, and the
+    // light on it added over that. Both are neutral where the glass is
+    // not, so neither needs a clip; and both hold on a light page as on
+    // a dark one, since one only darkens and the other only lightens.
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    drawSprite(ctx, cam, sp.glassMultiply);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.85;
+    drawSprite(ctx, cam, sp.glassAdd);
+    ctx.restore();
+    return;
+  }
   if (frame.glassLight) {
     const layer = frame.glassLight;
     const w = layer.width / frame.dpr;

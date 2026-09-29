@@ -16,13 +16,15 @@ one, the way a real half-hour glass is bigger than a three-minute egg timer —
 from one minute to two hours. Turn the phone upside down and the sand runs the
 other way, without the picture moving: it is the phone that moved.
 
-The sand is sand rather than a bar: each bulb keeps a heightfield of rings,
+The sand is sand rather than a bar: each bulb keeps a heightfield of cells,
 the volume that has run through is exactly the volume the clock says has, and
 every heap relaxes toward its own angle of repose — glass beads flatter, black
 sand steeper — so the upper surface is a funnel and the lower a cone, and a
 glass that has been in a background tab for ten minutes is ten minutes further
-on when it comes back. The picture is lit by one light: the frame, the glass's
-reflections and the grain of the sand all come from it.
+on when it comes back. Tilt the phone and the heaps lean with it; shake it
+and the grains jump. The frame and the glass are modelled in Blender off the
+same measurements, with photographed walnut, oak, pine, brass, copper and
+steel, and lit by the one light the sand is lit by.
 
 Ten hourglasses come built in — walnut and black steel, a ship's glass in
 turned brass, black lacquer with a tall smoked glass, copper and red sand,
@@ -96,6 +98,14 @@ To photograph the glass in a few states, for iterating on its look:
 
 ```sh
 make shots ARGS="--preset all --theme dark,light"
+```
+
+The frames and the glasses are modelled in Blender off the app's own data
+into `public/models/`; regenerate them after a change to a look (needs
+Blender as the `bpy` Python module or on the PATH):
+
+```sh
+make blender
 ```
 
 The native wrapper is a separate project with its own dependencies — a root
@@ -185,12 +195,13 @@ in — nothing here reads the clock. See [`docs/design.md`](docs/design.md).
 
 ## Troubleshooting
 
-| Symptom                                     | Fix                                                                                                                                       |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm install` fails with `401 Unauthorized` | The framework comes from GitHub Packages — see Prerequisites.                                                                             |
-| Turning the phone does nothing              | **Settings → The timer → Turn with the phone** is off, or an iPhone has not been asked: press the glass once and allow the motion sensor. |
-| The screen went to sleep mid-run            | **Keep the screen on** is off, or the browser refused the wake lock; the sand is still right when the screen comes back.                  |
-| The glass came back further on than it left | That is the wall clock: the run is read off it, not counted in frames, so a glass in a background tab keeps running.                      |
+| Symptom                                     | Fix                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm install` fails with `401 Unauthorized` | The framework comes from GitHub Packages — see Prerequisites.                                                                              |
+| Turning the phone does nothing              | **Settings → The timer → Turn with the phone** is off, or an iPhone has not been asked: press the glass once and allow the motion sensors. |
+| The sand stopped when I tilted the phone    | Past sixty degrees the hole is not fed, as in a real glass; stand the phone up and the run goes on from where it was.                      |
+| The screen went to sleep mid-run            | **Keep the screen on** is off, or the browser refused the wake lock; the sand is still right when the screen comes back.                   |
+| The glass came back further on than it left | That is the wall clock: the run is read off it, not counted in frames, so a glass in a background tab keeps running.                       |
 
 More in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 

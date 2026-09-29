@@ -5,24 +5,30 @@ import { layoutOf, type Layout } from "./glass.ts";
 import { GLASS, SAND, type Look } from "./look.ts";
 import { glassLight, grainPattern, paintHourglass } from "./paint.ts";
 import {
+  axisHeight,
   capacity,
   createBulb,
   drain,
   funnelFill,
+  jolt,
   levelFill,
   pileFill,
   pour,
   relax,
+  setTilt,
   settle,
   volume,
   type Bulb,
 } from "./sand.ts";
 import { PITCH, YAW, type Camera } from "./scene.ts";
-import type { Gravity } from "./useGravity.ts";
+import { useSprites } from "./sprites.ts";
+import { leanStops, type Gravity, type Motion } from "./useMotion.ts";
 import { useT } from "./i18n/index.ts";
 import {
+  halt,
   isRunning,
   passed,
+  resume,
   sizeFor,
   splitMinutes,
   stepMinutes,
@@ -49,6 +55,13 @@ import {
 // turning over for a moment, with the heaps it had, and then both heaps are
 // laid flat on their new floors — the way a real heap drops when the glass
 // is upended — and the run carries on from the clock.
+//
+// The phone is the glass (`useMotion`): turned over, the sand runs the other
+// way with nothing on the screen moving; held at a slant, the heaps lean
+// into it and the stream falls at that slant; held on its side, the hole is
+// not fed and the run halts until it is stood up again; shaken, the grains
+// jump and the heaps slump. On a desk a quick sideways wiggle of the
+// pointer is the shake.
 
 /** How much of a bulb the sand fills. Measured: a little under half. */
 export const FILL = 0.45;
@@ -78,17 +91,24 @@ const TURN_MS = 720;
 const DRAG_STEP_PX = 44;
 const LABEL_MS = 1600;
 
+/** How fast a shake dies down, a frame at a time, and how much of a shake
+ *  a sideways wiggle of the pointer is worth per pixel. */
+const SHAKE_DECAY = 0.9;
+const WIGGLE_PER_PX = 1 / 90;
+
 type Props = {
   look: Look;
   run: Run;
-  /** Which way gravity points on the screen (`useGravity`): a change turns
-   *  the glass over without turning the picture. */
-  gravity: Gravity;
+  /** The phone's readings (`useMotion`): which way up it is, how it leans,
+   *  and how hard it is shaken. */
+  motion: Motion;
   /** A press landed on the glass — before it is read as a tap or a drag.
    *  The one moment a phone will grant its sensors from. */
   onPress?: () => void;
   /** The glass was turned. */
   onTurn: () => void;
+  /** The run was halted or set going by a tilt: the new run, to keep. */
+  onRun: (run: Run) => void;
   /** The glass was dragged to another length. */
   onMinutes: (minutes: number) => void;
   /** The sand has run out. */
@@ -106,6 +126,13 @@ type Sim = {
   source: Bulb;
   sink: Bulb;
   gravity: Gravity;
+  /** The lean the heaps have been told, and how shaken they are. */
+  tilt: number;
+  shake: number;
+  /** Whether the run was halted by a lean past `STOP_LEAN`. */
+  stopped: boolean;
+  /** A count of frames, the seed a shake's throws are drawn from. */
+  frames: number;
   sand: number;
   run: Run;
   flip: Flip | null;
@@ -120,14 +147,20 @@ type Sim = {
 export function Hourglass({
   look,
   run,
-  gravity,
+  motion,
   onPress,
   onTurn,
+  onRun,
   onMinutes,
   onDone,
   className,
 }: Props) {
   const t = useT();
+  // The modelled parts, as they load; the painter draws its own until
+  // they have.
+  const sprites = useSprites(look);
+  const spritesRef = useRef(sprites);
+  spritesRef.current = sprites;
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [label, setLabel] = useState<string | null>(null);
@@ -139,8 +172,8 @@ export function Hourglass({
   const size = useRef({ w: 0, h: 0, dpr: 1 });
   const frame = useRef<number | null>(null);
   const labelTimer = useRef<number | null>(null);
-  const callbacks = useRef({ onPress, onTurn, onMinutes, onDone });
-  callbacks.current = { onPress, onTurn, onMinutes, onDone };
+  const callbacks = useRef({ onPress, onTurn, onRun, onMinutes, onDone });
+  callbacks.current = { onPress, onTurn, onRun, onMinutes, onDone };
 
   /** Build both heaps for a run as the clock has it now. */
   const build = useCallback((nextLook: Look, nextRun: Run, now: number) => {
@@ -148,18 +181,25 @@ export function Hourglass({
     const repose = SAND[nextLook.sand].repose;
     const source = createBulb(layout.bulb, "waist", repose);
     const sink = createBulb(layout.bulb, "plate", repose);
+    const previous = sim.current;
+    const tilt = previous?.tilt ?? 0;
+    setTilt(source, tilt, 0);
+    setTilt(sink, tilt, 0);
     const sand = capacity(source) * FILL;
     const f = passed(nextRun, now);
     if (f <= 0) levelFill(source, sand);
     else funnelFill(source, sand, sand * (1 - f));
-    pileFill(sink, sand * f);
-    const previous = sim.current;
+    pileFill(sink, sand * f, 40, tilt * layout.bulb.height * 0.5, 0);
     sim.current = {
       look: nextLook,
       layout,
       source,
       sink,
       gravity: previous?.gravity ?? 1,
+      tilt,
+      shake: previous?.shake ?? 0,
+      stopped: previous?.stopped ?? false,
+      frames: previous?.frames ?? 0,
       sand,
       run: nextRun,
       flip: null,
@@ -197,6 +237,43 @@ export function Hourglass({
     if (w === 0 || h === 0) return false;
     const now = Date.now();
     const seconds = performance.now() / 1000;
+    s.frames++;
+
+    // The phone: which way up, how it leans, how shaken. A turn of the
+    // phone turns the run the way a tap does, and nothing on the screen
+    // turns — it is the phone that moved.
+    const reading = motionRef.current.current;
+    if (reading.gravity !== s.gravity) {
+      s.gravity = reading.gravity;
+      if (s.flip) land(turn(s.flip.from, s.flip.start), now);
+      const next = turn(s.run, now);
+      land(next, now);
+      callbacks.current.onTurn();
+    }
+    if (Math.abs(reading.lean - s.tilt) > 1e-3) {
+      s.tilt = reading.lean;
+      setTilt(s.source, s.tilt, 0);
+      setTilt(s.sink, s.tilt, 0);
+    }
+    s.shake = Math.max(s.shake * SHAKE_DECAY, reading.shake);
+    if (s.shake < 0.01) s.shake = 0;
+    s.source.give = s.shake;
+    s.sink.give = s.shake;
+    // Held on its side the hole is not fed: the run halts, and starts
+    // again when the glass is stood up.
+    if (!s.flip) {
+      if (leanStops(s.tilt) && s.run.startedAt !== null) {
+        s.run = halt(s.run, now);
+        s.stopped = true;
+        callbacks.current.onRun(s.run);
+      } else if (!leanStops(s.tilt) && s.stopped) {
+        s.stopped = false;
+        if (s.run.fraction < 1) {
+          s.run = resume(s.run, now);
+          callbacks.current.onRun(s.run);
+        }
+      }
+    }
 
     // The sand, from the clock — or, through a turn, held as it was while
     // the picture turns over.
@@ -216,15 +293,26 @@ export function Hourglass({
       const f = passed(s.run, now);
       const target = s.sand * (1 - f);
       const d = volume(s.source) - target;
-      if (d > 1e-9) pour(s.sink, drain(s.source, d));
+      if (d > 1e-9) {
+        // The stream falls along gravity: at a slant, it lands off the axis
+        // by the slant times the fall.
+        const fall = s.layout.bulb.height - axisHeight(s.sink);
+        pour(s.sink, drain(s.source, d), s.tilt * fall, 0);
+      }
+      if (s.shake > 0) {
+        jolt(s.source, s.shake * 0.7, s.frames);
+        jolt(s.sink, s.shake * 0.7, s.frames + 0.5);
+      }
       // A big jump — the tab was asleep — settles at once rather than over
       // the next second of frames.
       if (d > s.sand * 0.01) {
         settle(s.source);
         settle(s.sink);
       } else {
-        relax(s.source, 3);
-        relax(s.sink, 3);
+        // A dozen sweeps a frame: enough for a heap to slump into a new
+        // lean in well under a second, the way sand does.
+        relax(s.source, 12);
+        relax(s.sink, 12);
       }
       if (f >= 1 && !s.done) {
         s.done = true;
@@ -234,6 +322,8 @@ export function Hourglass({
     }
     const running = !s.flip && isRunning(s.run, now);
     if (s.glow > 0) s.glow = Math.max(0, s.glow - 0.004);
+    // A leaning heap keeps settling a while after the lean changes.
+    const settling = relax(s.source, 4) + relax(s.sink, 4) > 1e-9;
 
     // The camera: the glass as tall as its length earns, the waist in the
     // middle, and — while it turns — the whole picture turning with it, the
@@ -248,16 +338,27 @@ export function Hourglass({
       cy: h / 2,
     };
     const light = pageIsLight();
-    const grainKey = `${s.look.sand}@${dpr}`;
+    const sprites = spritesRef.current;
+    const grainKey = `${s.look.sand}@${dpr}@${sprites?.grain ? "tex" : "spec"}`;
     if (!s.grain || s.grainKey !== grainKey) {
-      s.grain = grainPattern(ctx, SAND[s.look.sand], dpr);
+      s.grain = grainPattern(
+        ctx,
+        SAND[s.look.sand],
+        dpr,
+        sprites?.grain ?? null,
+      );
       s.grainKey = grainKey;
     }
     // The light on the glass is rendered once for a size and kept; it is
     // not drawn while the glass turns over, where the size would be a
     // frame's worth of work for nothing.
     const lightKey = `${s.look.glass}/${s.look.top}@${Math.round(scale)}@${dpr}@${light}`;
-    if (angle === 0 && (!s.glassLight || s.glassLightKey !== lightKey)) {
+    const modelledGlass = Boolean(sprites?.glassAdd && sprites.glassMultiply);
+    if (
+      !modelledGlass &&
+      angle === 0 &&
+      (!s.glassLight || s.glassLightKey !== lightKey)
+    ) {
       s.glassLight = glassLight(
         s.layout,
         GLASS[s.look.glass],
@@ -284,16 +385,19 @@ export function Hourglass({
       source: s.source,
       sink: s.sink,
       gravity: s.gravity,
+      tilt: s.tilt,
+      shake: s.shake,
       flow: running ? 1 : 0,
       t: seconds,
       glow: s.glow,
       dpr,
       grain: s.grain,
-      glassLight: angle === 0 ? s.glassLight : null,
+      glassLight: angle === 0 && !modelledGlass ? s.glassLight : null,
       light,
+      sprites,
     });
     ctx.restore();
-    return running || s.flip !== null || s.glow > 0;
+    return running || s.flip !== null || s.glow > 0 || s.shake > 0 || settling;
   }, [land]);
 
   // The loop: runs while something moves, and stops when nothing does.
@@ -319,11 +423,15 @@ export function Hourglass({
       s.run !== run &&
       run.startedAt !== null &&
       Math.abs(passed(s.run, now) - (1 - run.fraction)) < 1e-6;
+    const ours =
+      s !== null &&
+      s.run.fraction === run.fraction &&
+      s.run.startedAt === run.startedAt;
     if (
       !s ||
       s.look !== look ||
       s.run.minutes !== run.minutes ||
-      (!s.flip && !turned && s.run.startedAt !== run.startedAt)
+      (!s.flip && !turned && !ours && s.run.startedAt !== run.startedAt)
     ) {
       build(look, run, now);
     } else if (!s.flip) {
@@ -332,25 +440,15 @@ export function Hourglass({
     wake();
   }, [look, run, build, wake]);
 
-  // The phone was turned over: the source is now the other bulb on the
-  // screen, the sand in it runs the other way, and nothing turns on the
-  // screen — it is the phone that moved. The run turns exactly as a tap
-  // turns it, and the heaps drop onto their new floors.
+  // The modelled parts arriving is a frame worth painting.
   useEffect(() => {
-    const s = sim.current;
-    if (!s || s.gravity === gravity) return;
-    s.gravity = gravity;
-    if (s.flip) {
-      // Mid-turn on the screen: the turn lands, and gravity's turn is on
-      // top of it.
-      land(turn(s.flip.from, s.flip.start), Date.now());
-    }
-    const now = Date.now();
-    const next = turn(s.run, now);
-    land(next, now);
-    callbacks.current.onTurn();
-    wake();
-  }, [gravity, land, wake]);
+    if (sprites) wake();
+  }, [sprites, wake]);
+
+  // A reading from the phone wakes the loop; the loop reads it.
+  const motionRef = useRef(motion);
+  motionRef.current = motion;
+  useEffect(() => motion.subscribe(wake), [motion, wake]);
 
   // The canvas follows its box, at the device's pixels.
   useEffect(() => {
@@ -421,9 +519,11 @@ export function Hourglass({
 
   const press = useRef<{
     id: number;
+    x: number;
     y: number;
     minutes: number;
     dragging: boolean;
+    wiggled?: boolean;
   } | null>(null);
   const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
@@ -433,6 +533,7 @@ export function Hourglass({
     callbacks.current.onPress?.();
     press.current = {
       id: e.pointerId,
+      x: e.clientX,
       y: e.clientY,
       minutes: s.run.minutes,
       dragging: false,
@@ -441,8 +542,20 @@ export function Hourglass({
   const onPointerMove = (e: PointerEvent) => {
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
+    // A sideways wiggle is a shake — the desk's, where there is no phone
+    // to shake.
+    const dx = e.clientX - p.x;
+    p.x = e.clientX;
+    if (Math.abs(dx) > 3) {
+      const s = sim.current;
+      if (s) {
+        s.shake = Math.min(1, s.shake + Math.abs(dx) * WIGGLE_PER_PX);
+        wake();
+      }
+    }
     const dy = p.y - e.clientY;
     if (!p.dragging && Math.abs(dy) > 10) p.dragging = true;
+    if (!p.dragging && Math.abs(dx) > 3) p.wiggled = true;
     if (!p.dragging) return;
     const next = stepMinutes(p.minutes, Math.round(dy / DRAG_STEP_PX));
     const s = sim.current;
@@ -453,7 +566,7 @@ export function Hourglass({
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
     press.current = null;
-    if (!p.dragging) turnOver();
+    if (!p.dragging && !p.wiggled) turnOver();
   };
   const onPointerCancel = () => {
     press.current = null;

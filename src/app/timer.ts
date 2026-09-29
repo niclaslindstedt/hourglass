@@ -111,6 +111,14 @@ export function halt(run: Run, now: number): Run {
   return { minutes: run.minutes, fraction: passed(run, now), startedAt: null };
 }
 
+/** A halted run set going again from where it stands — a glass stood up
+ *  straight after being held on its side. A run already running, or one
+ *  that has run out, is returned as it is. */
+export function resume(run: Run, now: number): Run {
+  if (run.startedAt !== null || run.fraction >= 1) return run;
+  return { minutes: run.minutes, fraction: run.fraction, startedAt: now };
+}
+
 /** A stored run, every field clamped: an unreadable one is a new glass. */
 export function clampRun(
   value: unknown,

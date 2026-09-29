@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import type { Layout } from "./glass.ts";
 import type { Frame, Post } from "./frame.ts";
+import type { Loaded } from "./sprites.ts";
 import { SAND, TOP, type TopSpec } from "./look.ts";
 import { glassPath, paintGlassBack, paintGlassFront } from "./paintGlass.ts";
 import { paintSand, paintStream } from "./paintSand.ts";
 import {
+  PITCH,
   axisY,
   css,
   cylinderLit,
@@ -41,13 +43,26 @@ export function paintHourglass(
   const { cam, look, layout } = frame;
   const top = TOP[look.top];
   const B = layout.bulb.height;
+  const sp = frame.sprites;
 
   paintShadow(ctx, frame);
   if (frame.glow > 0) paintGlow(ctx, frame);
-  paintPlate(ctx, cam, top, -B - top.thick, -B, layout.reach);
+  // The plates: the modelled one where it has loaded — the same picture
+  // for both ends, the upper one shifted up by the glass and a plate —
+  // and the painter's own otherwise.
+  const plateLift = -(2 * B + top.thick) * Math.cos(PITCH);
+  if (sp?.plate) drawSprite(ctx, cam, sp.plate);
+  else paintPlate(ctx, cam, top, -B - top.thick, -B, layout.reach);
   paintFootShadow(ctx, frame);
   const posts = postPositions(top, layout);
-  for (const p of posts) if (p.depth < 0) paintPost(ctx, cam, top, p, B);
+  const post = (p: Post, k: number) => {
+    const s = sp?.posts[sp.posts.length === 2 ? k : 0];
+    if (s?.at) drawSpriteAt(ctx, cam, s, p.x, -B, p.z);
+    else paintPost(ctx, cam, top, p, B);
+  };
+  posts.forEach((p, k) => {
+    if (p.depth < 0) post(p, k);
+  });
   paintGlassBack(ctx, frame, posts);
   const up = frame.gravity;
   paintSand(ctx, frame, frame.source, 0, up);
@@ -55,9 +70,57 @@ export function paintHourglass(
   if (frame.flow > 0) paintStream(ctx, frame);
   paintPlateShade(ctx, frame);
   paintGlassFront(ctx, frame);
-  for (const p of posts) if (p.depth >= 0) paintPost(ctx, cam, top, p, B);
-  paintPlate(ctx, cam, top, B, B + top.thick, layout.reach);
-  for (const p of posts) paintFinial(ctx, cam, top, p, B + top.thick);
+  posts.forEach((p, k) => {
+    if (p.depth >= 0) post(p, k);
+  });
+  if (sp?.plate) drawSprite(ctx, cam, sp.plate, 0, plateLift);
+  else paintPlate(ctx, cam, top, B, B + top.thick, layout.reach);
+  for (const p of posts) {
+    if (sp?.finial?.at)
+      drawSpriteAt(ctx, cam, sp.finial, p.x, B + top.thick, p.z);
+    else paintFinial(ctx, cam, top, p, B + top.thick);
+  }
+}
+
+// ── The modelled parts ──────────────────────────────────────────────────────
+
+/** A sprite where it was rendered, shifted by `dx`, `dy` screen units. */
+export function drawSprite(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  s: Loaded,
+  dx = 0,
+  dy = 0,
+): void {
+  ctx.drawImage(
+    s.image,
+    cam.cx + (s.x + dx) * cam.scale,
+    cam.cy + (s.y + dy) * cam.scale,
+    s.w * cam.scale,
+    s.h * cam.scale,
+  );
+}
+
+/** A sprite rendered at one world point, moved to another: a post or a
+ *  finial, shifted by the difference of the two projections. */
+function drawSpriteAt(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  s: Loaded,
+  x: number,
+  y: number,
+  z: number,
+): void {
+  const at = s.at ?? { x: 0, y: 0, z: 0 };
+  const from = project(cam, at.x, at.y, at.z);
+  const to = project(cam, x, y, z);
+  drawSprite(
+    ctx,
+    cam,
+    s,
+    (to.x - from.x) / cam.scale,
+    (to.y - from.y) / cam.scale,
+  );
 }
 
 // ── The table ───────────────────────────────────────────────────────────────
@@ -543,7 +606,7 @@ function paintPost(
 
 /** A spindle's half-width along its length, as a multiple of the post
  *  radius: a bead near each end, a long swell in the middle. */
-function balusterWidth(f: number): number {
+export function balusterWidth(f: number): number {
   const bead = (at: number, w: number) =>
     Math.exp(-((f - at) ** 2) / (2 * w * w));
   return (

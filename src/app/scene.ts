@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import type { Bulb } from "./sand.ts";
+import { rimAt, type Bulb } from "./sand.ts";
 
 // The camera, the light and the colours: what turns the hourglass's
 // geometry (in `glass.ts`'s unit, the whole height) into points on the
@@ -142,9 +142,6 @@ export function tone(base: Rgb, dark: Rgb, light: Rgb, k: number): Rgb {
 
 // ── The heap, as a surface ──────────────────────────────────────────────────
 
-/** How many spokes a heap's surface is drawn with. */
-export const SPOKES = 28;
-
 /** One face of the surface: its four screen corners, its depth (for the
  *  order it is painted in) and how lit it is. */
 export type Facet = {
@@ -154,70 +151,141 @@ export type Facet = {
   lit: number;
 };
 
+/** Where the sand meets the wall along spoke `a`: the radius and the height
+ *  (from the resting end) of the edge of the heap there, or null on a spoke
+ *  with no sand. */
+export function rimEdge(
+  bulb: Bulb,
+  a: number,
+): { r: number; h: number } | null {
+  const i = rimAt(bulb, a);
+  if (i < 0) return null;
+  const h = bulb.height[i * bulb.m + a]!;
+  if (i + 1 < bulb.n) {
+    // The wall rises from this ring's floor to the next ring's; the sand's
+    // surface meets it where the wall reaches the sand's own height —
+    // between the two ring centres, so a leaning heap's edge runs smoothly
+    // round the glass rather than stepping from ring to ring.
+    const f0 = bulb.floor[i]!;
+    const f1 = bulb.floor[i + 1]!;
+    const r0 = bulb.centre[i]!;
+    const r1 = bulb.centre[i + 1]!;
+    if (f1 > h && f1 > f0) {
+      const t = Math.min(1, Math.max(0, (h - f0) / (f1 - f0)));
+      return { r: r0 + (r1 - r0) * t, h };
+    }
+    return { r: r1, h: f1 };
+  }
+  return { r: bulb.centre[i]! * 1.03, h };
+}
+
 /**
- * The heap's surface as facets: a quad between every two neighbouring rings
- * and every two spokes, from the axis out to the rim, where the surface
- * meets the wall. `baseY` is the world height of the end the sand rests
- * against, and `up` which way the bulb's heights go from it on the screen:
- * +1 when gravity points down the screen, −1 when the phone is upside
- * down and the heaps hang the other way. Sorted far to near, so painting
- * them in order is right.
+ * The heap's surface as facets: a quad between every four neighbouring
+ * cells' centres from the axis out, a fan over the axis itself, and a skirt
+ * from the last cell with sand on each spoke out to the wall. `baseY` is
+ * the world height of the end the sand rests against, and `up` which way
+ * the bulb's heights go from it on the screen: +1 when gravity points down
+ * the screen, −1 when the phone is upside down and the heaps hang the
+ * other way. Each facet is lit by its own normal, so a heap leaning into a
+ * tilt is lit as it leans. Sorted far to near, so painting them in order
+ * is right.
  */
 export function surfaceFacets(
   cam: Camera,
   bulb: Bulb,
   baseY: number,
   up: 1 | -1,
-  rimRing: number,
-  spokes = SPOKES,
 ): Facet[] {
   const facets: Facet[] = [];
-  if (rimRing < 0) return facets;
+  const { n, m, centre, height } = bulb;
   const worldY = (h: number) => baseY + up * h;
-  // The rings' centre radii and heights, plus the axis and the rim's outer
-  // edge so the surface reaches both.
-  const radii: number[] = [0];
-  const heights: number[] = [bulb.height[0]!];
-  for (let i = 0; i <= rimRing; i++) {
-    radii.push(bulb.centre[i]!);
-    heights.push(bulb.height[i]!);
+  type P3 = [number, number, number];
+  const at = (r: number, t: number, h: number): P3 => [
+    r * Math.cos(t),
+    worldY(h),
+    r * Math.sin(t),
+  ];
+  const push = (c: [P3, P3, P3, P3]) => {
+    const [p0, p1, p2, p3] = c;
+    const s0 = project(cam, p0[0], p0[1], p0[2]);
+    const s1 = project(cam, p1[0], p1[1], p1[2]);
+    const s2 = project(cam, p2[0], p2[1], p2[2]);
+    const s3 = project(cam, p3[0], p3[1], p3[2]);
+    // The normal from two edges, turned to face away from the sand — up
+    // the bulb's heights, which is `up` on the screen.
+    const ux = p1[0] - p0[0];
+    const uy = p1[1] - p0[1];
+    const uz = p1[2] - p0[2];
+    const vx = p3[0] - p0[0];
+    const vy = p3[1] - p0[1];
+    const vz = p3[2] - p0[2];
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    if (ny * up < 0) {
+      nx = -nx;
+      ny = -ny;
+      nz = -nz;
+    }
+    facets.push({
+      x: [s0.x, s1.x, s2.x, s3.x],
+      y: [s0.y, s1.y, s2.y, s3.y],
+      depth: (s0.depth + s1.depth + s2.depth + s3.depth) / 4,
+      lit: nx === 0 && ny === 0 && nz === 0 ? lit(0, up, 0) : lit(nx, ny, nz),
+    });
+  };
+  const angle = (a: number) => ((a + 0.5) * 2 * Math.PI) / m;
+  const cell = (i: number, a: number) => height[i * m + ((a + m) % m)]!;
+  const edge: ({ r: number; h: number } | null)[] = [];
+  let any = false;
+  for (let a = 0; a < m; a++) {
+    const e = rimEdge(bulb, a);
+    edge.push(e);
+    if (e) any = true;
   }
-  const outer =
-    rimRing + 1 < bulb.n
-      ? bulb.centre[rimRing + 1]!
-      : bulb.centre[rimRing]! * 1.03;
-  radii.push(outer);
-  // Beyond the rim the surface meets the wall: the next ring's floor, or
-  // the wall where the last ring's floor is — read as the sand's floor
-  // there, which is where it ends.
-  heights.push(
-    rimRing + 1 < bulb.n ? bulb.floor[rimRing + 1]! : bulb.height[rimRing]!,
-  );
+  if (!any) return facets;
 
-  const da = (2 * Math.PI) / spokes;
-  for (let i = 0; i < radii.length - 1; i++) {
-    const r0 = radii[i]!;
-    const r1 = radii[i + 1]!;
-    const h0 = worldY(heights[i]!);
-    const h1 = worldY(heights[i + 1]!);
-    const slope = (heights[i + 1]! - heights[i]!) / Math.max(1e-9, r1 - r0);
-    const len = Math.hypot(1, slope);
-    const nr = -slope / len;
-    const ny = 1 / len;
-    for (let a = 0; a < spokes; a++) {
-      const a0 = a * da;
-      const a1 = a0 + da;
-      const am = a0 + da / 2;
-      const p0 = project(cam, r0 * Math.cos(a0), h0, r0 * Math.sin(a0));
-      const p1 = project(cam, r1 * Math.cos(a0), h1, r1 * Math.sin(a0));
-      const p2 = project(cam, r1 * Math.cos(a1), h1, r1 * Math.sin(a1));
-      const p3 = project(cam, r0 * Math.cos(a1), h0, r0 * Math.sin(a1));
-      facets.push({
-        x: [p0.x, p1.x, p2.x, p3.x],
-        y: [p0.y, p1.y, p2.y, p3.y],
-        depth: (p0.depth + p1.depth + p2.depth + p3.depth) / 4,
-        lit: lit(nr * Math.cos(am), up * ny, nr * Math.sin(am)),
-      });
+  // Over the axis: a fan from the mean of the innermost ring to its cells.
+  let axis = 0;
+  for (let a = 0; a < m; a++) axis += cell(0, a);
+  axis /= m;
+  const r0 = centre[0]!;
+  for (let a = 0; a < m; a++) {
+    const t0 = angle(a);
+    const t1 = angle(a + 1);
+    const o = at(0, 0, axis);
+    push([o, at(r0, t0, cell(0, a)), at(r0, t1, cell(0, a + 1)), o]);
+  }
+  // Between the rings, out to the last ring with sand on each spoke — a
+  // spoke whose sand ends before its neighbour's contributes its own edge
+  // on the wall from there on, so the surface between them is the slope
+  // of the sand and never a climb up the glass.
+  const rims: number[] = [];
+  for (let a = 0; a < m; a++) rims.push(rimAt(bulb, a));
+  const point = (i: number, a: number): P3 => {
+    const aa = (a + m) % m;
+    const t = angle(aa);
+    const ra = rims[aa]!;
+    if (i <= ra) return at(centre[i]!, t, cell(i, aa));
+    const e = edge[aa]!;
+    return at(e.r, t, e.h);
+  };
+  for (let a = 0; a < m; a++) {
+    const ra = rims[a]!;
+    const rb = rims[(a + 1) % m]!;
+    if (ra < 0 && rb < 0) continue;
+    const to = Math.max(ra, rb);
+    for (let i = 0; i < to && i + 1 < n; i++) {
+      push([
+        point(i, a),
+        point(i + 1, a),
+        point(i + 1, a + 1),
+        point(i, a + 1),
+      ]);
+    }
+    // The skirt: from the last cell with sand out to the wall.
+    if (ra >= 0 && rb >= 0) {
+      push([point(ra, a), point(n, a), point(n, a + 1), point(rb, a + 1)]);
     }
   }
   facets.sort((a, b) => a.depth - b.depth);

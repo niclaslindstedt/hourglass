@@ -146,7 +146,7 @@ export const en = {
     awakeHint: "While the sand is running, the screen does not go to sleep.",
     sensor: "Turn with the phone",
     sensorHint:
-      "Turn the phone upside down and the sand runs the other way — the glass stays where it is on the screen; it is the phone that moved. Uses the motion sensor, which on an iPhone asks for permission the first time you press the glass. The readings are used for the next frame and nothing else — never stored or sent.",
+      "Turn the phone upside down and the sand runs the other way; tilt it and the heaps lean with it; shake it and the grains jump — the glass stays where it is on the screen; it is the phone that moved. Uses the motion sensors, which on an iPhone ask for permission the first time you press the glass. The readings are used for the next frame and nothing else — never stored or sent.",
     developer: "Developer",
     devMode: "Developer mode",
     devModeHint: "Show the log panel.",

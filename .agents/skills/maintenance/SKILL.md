@@ -23,12 +23,13 @@ Each skill records the commit it last ran against in `.agents/skills/<skill>/.la
 
 The registry is the single source of truth for which sync skills exist in this repo. Every skill directory under `.agents/skills/` must appear here exactly once.
 
-| Skill                | Fixes                                                                                                 | Run order                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `write-changeset`    | A user-visible change with no fragment in `.changes/unreleased/`                                      | 1 — run first; the fragment describes the change the other skills then document |
-| `update-docs`        | `docs/*.md` vs. source of truth                                                                       | 2                                                                               |
-| `update-readme`      | `README.md` vs. the current public surface                                                            | 3                                                                               |
-| `add-hourglass-look` | Not a sync skill: the playbook for a new top, glass, sand or preset, and the trademark rules it keeps | — (on request; never scheduled by a sweep)                                      |
+| Skill                | Fixes                                                                                                                                            | Run order                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `write-changeset`    | A user-visible change with no fragment in `.changes/unreleased/`                                                                                 | 1 — run first; the fragment describes the change the other skills then document |
+| `update-docs`        | `docs/*.md` vs. source of truth                                                                                                                  | 2                                                                               |
+| `update-readme`      | `README.md` vs. the current public surface                                                                                                       | 3                                                                               |
+| `add-hourglass-look` | Not a sync skill: the playbook for a new top, glass, sand or preset, and the trademark rules it keeps                                            | — (on request; never scheduled by a sweep)                                      |
+| `blender-assets`     | Not a sync skill: the frames, the glasses and the grain modelled in Blender off `look.ts` into `public/models/`, and the app's composite of them | — (on request; never scheduled by a sweep)                                      |
 
 Run order matters: `update-readme` reads the docs that `update-docs` rewrites, so it must run after it. A new skill that reads files another skill rewrites goes after that skill.
 

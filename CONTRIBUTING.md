@@ -44,6 +44,12 @@ The desktop shell in `tauri/` is a Rust project with its own toolchain:
 `make tauri-test` runs its decision layer with no GUI libraries, and
 `make tauri-lint` needs them. See [`tauri/README.md`](tauri/README.md).
 
+The frames and the glasses are modelled in Blender off the app's own data:
+`make blender` regenerates `public/models/` (Blender as the `bpy` Python
+module, or on the PATH; the CC0 textures are fetched once into `.cache/`).
+The painter draws its own plainer parts wherever a sprite is missing, so a
+checkout builds and runs without Blender. See the `blender-assets` skill.
+
 A change to how the glass draws is judged by eye. `make shots` builds and
 photographs the hourglass in a few states into `shots/`, with a contact sheet
 of them all in `shots/sheet.png` (see `scripts/glass-shots.mjs` for the

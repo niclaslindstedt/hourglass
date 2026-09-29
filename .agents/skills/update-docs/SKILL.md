@@ -37,7 +37,8 @@ git diff --name-only "${BASELINE:-$(git rev-list --max-parents=0 HEAD)}"..HEAD -
 | `src/app/timer.ts`                                  | `docs/features/hourglass.md` (the lengths, the size); `docs/configuration.md` (the Length row); the README's Usage table |
 | `src/app/look.ts`                                   | `docs/features/looks.md` (the tables); `docs/configuration.md` (the Custom rows); the README's What and Settings rows    |
 | `src/app/scene.ts`, `paint*.ts`, `frame.ts`         | `docs/design.md` (the picture)                                                                                           |
-| `src/app/useGravity.ts`                             | `docs/features/hourglass.md` (turning the phone); `docs/troubleshooting.md`; `docs/features/native-app.md`               |
+| `src/app/useMotion.ts`                              | `docs/features/hourglass.md` (turning, tilting, shaking); `docs/troubleshooting.md`; `docs/features/native-app.md`       |
+| `src/app/sprites.ts`, `scripts/blender/**`          | `docs/design.md` (the modelled parts); the `blender-assets` skill's tables                                               |
 | `src/app/Hourglass.tsx`                             | `docs/features/hourglass.md` (the gestures); `docs/architecture.md` (the render loop)                                    |
 | `src/app/useAppSettings.ts`, `useRun.ts`            | `docs/configuration.md` (runtime settings and storage keys)                                                              |
 | `src/vite-env.d.ts`, `vite.config.ts`               | `docs/configuration.md` (build-time table); the README's Configuration table                                             |

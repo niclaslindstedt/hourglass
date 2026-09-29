@@ -11,6 +11,7 @@ import {
   isRunning,
   newRun,
   passed,
+  resume,
   remainingSeconds,
   sizeFor,
   splitMinutes,
@@ -119,5 +120,23 @@ describe("a stored run", () => {
       fraction: 1,
       startedAt: null,
     });
+  });
+});
+
+describe("a run halted by a tilt", () => {
+  it("resumes from where it stood, and only if it was halted and not run out", () => {
+    const start = Date.UTC(2026, 8, 29, 12);
+    const run = turn(newRun(10), start);
+    const held = halt(run, start + 3 * 60_000);
+    expect(held.startedAt).toBeNull();
+    expect(held.fraction).toBeCloseTo(0.3, 9);
+    const again = resume(held, start + 9 * 60_000);
+    expect(again.startedAt).toBe(start + 9 * 60_000);
+    // Six minutes on its side counted for nothing: a minute later it is
+    // four tenths through, not a whole glass.
+    expect(passed(again, start + 10 * 60_000)).toBeCloseTo(0.4, 9);
+    expect(resume(run, start)).toBe(run);
+    const out = halt(turn(newRun(1), start), start + 61_000);
+    expect(resume(out, start + 70_000)).toBe(out);
   });
 });

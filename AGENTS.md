@@ -40,6 +40,7 @@ make fmt           # prettier --write
 make fmt-check     # verify formatting (CI)
 make icons         # regenerate the PWA icons, favicon, and og image
 make shots         # build + photograph the glass in a few states into shots/, with a contact sheet (ARGS="…" for options)
+make blender       # model every frame and glass in Blender off look.ts into public/models/ (needs bpy or Blender; ARGS="…")
 
 make native-install    # install the native wrapper's own dependencies
 make native-bundle     # build the web app into native/assets/webroot.zip
@@ -159,15 +160,20 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   which sizes the frame to clear the glass: the posts stand
   `POST_CLEARANCE` outside the bulb at its widest, whatever the top's own
   reach says. Everything is in one unit, the whole hourglass's height. Pure.
-- `src/app/sand.ts` — the sand, as a **radial heightfield** per bulb: rings
-  from the axis out, each a height above the end the sand rests against
-  (the plate in the lower bulb, the waist in the upper), volume-exact, with
-  `relax` walking a slope steeper than the sand's angle of repose back down
-  to it and `settle` running that to rest. `drain` takes sand from the axis
-  of the upper bulb and `pour` lands it on the axis of the lower, which is
-  why the upper surface is a funnel and the lower a cone; `levelFill`,
-  `pileFill` and `funnelFill` put a volume in at rest. Pure and clock-free —
-  it knows nothing about time, only about volume.
+- `src/app/sand.ts` — the sand, as a **heightfield of cells** per bulb:
+  rings from the axis out, each cut into spokes, each cell a height above
+  the end the sand rests against (the plate in the lower bulb, the waist in
+  the upper), volume-exact, with `relax` walking a slope steeper than the
+  sand's angle of repose back down to it — read against gravity, which
+  `setTilt` may lean across the bulb, so a tilted glass settles to a
+  surface that leans with it — and `settle` running that to rest. `drain`
+  takes sand from the axis of the upper bulb and `pour` lands it where the
+  stream falls in the lower (on the axis, or off it at a slant), which is
+  why the upper surface is a funnel and the lower a cone; `jolt` is a
+  shake, grains thrown cell to cell, and `give` how much flatter a shaken
+  heap holds; `levelFill`, `pileFill` and `funnelFill` put a volume in at
+  rest. Pure and clock-free — it knows nothing about time, only about
+  volume, and nothing of chance: a shake's throws are a hash of a seed.
 - `src/app/timer.ts` — the run: how long the glass runs (`DURATIONS`, the
   lengths on offer, and `clampMinutes` / `stepMinutes` over them), how big it
   is for that (`sizeFor`, on a log scale, because a minute is a lot at the
@@ -178,12 +184,14 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   clock-free; `now` is a parameter.
 - `src/app/scene.ts` — the camera and the light: an orthographic view with
   a slight pitch and yaw, `project` and `ellipseOf` for a point and a ring
-  in it, `LIGHT` — the one light everything is lit by — and `surfaceFacets`,
-  which turns a bulb's heightfield into the lit quads the sand's surface is
-  painted as. Pure.
+  in it, `LIGHT` — the one light everything is lit by — `rimEdge`, where
+  the sand meets the wall on each spoke, and `surfaceFacets`, which turns a
+  bulb's cells into the lit quads the sand's surface is painted as, each
+  lit by its own normal. Pure.
 - `src/app/frame.ts` — what one painted frame is made of: the camera, the
-  look, the layout, the two heaps, which way gravity points, the stream's
-  strength, the moment, the glow and the two cached layers.
+  look, the layout, the two heaps, which way gravity points and leans, how
+  shaken the glass is, the stream's strength, the moment, the glow, the two
+  cached layers and the modelled parts.
 - `src/app/paint.ts`, `paintGlass.ts`, `paintSand.ts` — the picture, in the
   order things stand back to front: the shadow on the table, the bottom
   plate, the posts behind the glass, the glass's back wall with the posts
@@ -191,25 +199,48 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   light on it (`glassLight`, rendered per pixel once per size — Blinn-Phong
   and a Fresnel rim, dark edges on a light page), the posts in front, the top
   plate and its finials. The sand is lit facet by facet and covered in a
-  grain pattern drawn one speck to a device pixel (`grainPattern`), with the
-  grains that cling to the glass above the rim. Paint only, no vocabulary,
-  so the same drawing serves the screen and the preset cards.
+  grain pattern drawn one speck to a device pixel (`grainPattern`, over a
+  photographed sand's grain where the build carries one), with the grains
+  that cling to the glass above the rim; the stream falls along gravity and
+  wavers when shaken. Where the modelled parts have loaded (`sprites.ts`)
+  the plates, the posts, the finials and the light on the glass are those
+  pictures instead — `drawSprite`, and the glass's `multiply` then `add`
+  passes — and the painter's own drawing is the fallback on every branch.
+  Paint only, no vocabulary, so the same drawing serves the screen and the
+  preset cards.
+- `src/app/sprites.ts` — the modelled parts: sprites Blender rendered off
+  the app's own data (`scripts/blender.mjs`, the `blender-assets` skill)
+  under `public/models/`, with a manifest that says where each lands in
+  screen units from the waist. `useSprites(look)` loads what a look is
+  drawn with, once each; null until loaded, null for good on a build that
+  ships no models. Fetched from this origin like any other file, precached
+  by the worker, bundled into the phone and desktop apps.
 - `src/app/Hourglass.tsx` — the glass on the screen, and everything a
   press means. Builds the two heaps for the run as the clock has it
-  (`build`), advances them a frame at a time (`paint`: drain, pour, relax),
-  lands a turn (`land`), and runs the `requestAnimationFrame` loop. A tap
-  turns the glass over — the picture rotates half a turn and the heaps drop
-  onto their new floors; a drag up or down makes it a longer or a shorter
-  glass, one length on the list per `DRAG_STEP_PX`; the wheel and the arrow
-  keys do the same. Gravity from the sensor turns the **run** without
-  turning the picture. Reads `timer.ts` for where the run stands and
-  `sand.ts` for the sand.
-- `src/app/useGravity.ts` — which way is down, read off the phone: the
-  `deviceorientation` reading's front-back tilt as a sign along the screen,
-  flipped only past a wide hysteresis so a phone carried flat does not turn
-  its glass at every jolt. On iOS the sensor needs permission, asked from
-  the first press (`requestGravity`). **The readings never leave the frame
-  they decide** — nothing is stored, nothing is sent.
+  (`build`), advances them a frame at a time (`paint`: drain, pour, jolt,
+  relax), lands a turn (`land`), and runs the `requestAnimationFrame` loop.
+  A tap turns the glass over — the picture rotates half a turn and the
+  heaps drop onto their new floors; a drag up or down makes it a longer or
+  a shorter glass, one length on the list per `DRAG_STEP_PX`; the wheel and
+  the arrow keys do the same; a sideways wiggle is a shake. The phone's
+  readings (`useMotion`) are read in the loop: a turn of the phone turns
+  the **run** without turning the picture, a lean is handed to both heaps
+  and the stream, a lean past `STOP_LEAN` halts the run until the glass is
+  stood up (`halt` / `resume`), and a shake sets `give` and throws grains.
+  Reads `timer.ts` for where the run stands and `sand.ts` for the sand.
+- `src/app/useMotion.ts` — the phone's readings, for the sand: gravity in
+  the screen's plane from the `deviceorientation` angles
+  (`screenGravity`) as which way up the glass is — flipped only past a
+  wide hysteresis, so a phone carried flat does not turn its glass at
+  every jolt — and how far it leans (`leanOf`, capped, and `leanStops`
+  where the hole is no longer fed); and the shake from `devicemotion`'s
+  acceleration with gravity taken out (`shakeOf`). The share of gravity
+  into the screen is dropped on purpose: a phone laid flat is a glass
+  that goes on running. On iOS both sensors need permission, asked from
+  the first press (`requestMotion`). **The readings never leave the frame
+  they decide** — nothing is stored, nothing is sent — and they live in a
+  ref rather than in state, since a render for each of sixty a second
+  would be a screen redrawn for nothing.
 - `src/app/useRun.ts` — the run, persisted per device (`hourglass:run`) so
   the sand is where it was when the tab comes back; a new glass when the
   length changes.
@@ -276,6 +307,27 @@ running. The **phone** turning over turns the run only: the source is now the
 lower bulb on the screen and the stream runs up it, and nothing on the screen
 moves — it is the phone that moved. Both go through `turn` in `timer.ts` and
 `land` in `Hourglass.tsx`; do not add a third path.
+
+### The phone is the glass
+
+Held at a slant, the heaps lean into it and the stream falls at that slant
+(`setTilt`, and `pour` off the axis); held on its side, the hole is not fed
+and the run halts (`STOP_LEAN`, `halt`, `resume`) — a real one stops too;
+shaken, the grains jump and the heaps slump (`jolt`, `give`). None of it
+moves the picture, and none of it changes what the clock says has run
+through: a tilt pauses the clock, a shake never touches it. The share of
+gravity into the screen is dropped (`useMotion`), so a phone laid flat on a
+table is a glass that goes on running — the one place the physics gives way
+to the timer, on purpose.
+
+### The modelled parts are a picture, never a source of truth
+
+The sprites under `public/models/` are rendered off `look.ts` and `glass.ts`
+by `make blender`, and the painter draws its own plate, post, finial and
+glass light on every branch where one is missing. A number a sprite needs
+is a number the driver hands Blender from the app's data, never one typed
+in the builder; and the sprites are judged in the app (`make shots`), not in
+Blender. See the `blender-assets` skill.
 
 ## The native wrapper (`native/`)
 
@@ -348,34 +400,36 @@ job only type-checks and runs `npx expo-doctor`. See `native/README.md` and
 
 ## Where new code goes
 
-| Change                                               | Goes in                                                                                                                                                                                                                                               |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A new top, glass, sand or preset                     | Run the `add-hourglass-look` skill (`.agents/skills/add-hourglass-look/`): `src/app/look.ts` (id + spec, walked by `tests/look_test.ts`), a string in `en.ts`, and `make shots` to look at it — named for where you would find one, never for a maker |
-| A change to a glass's shape                          | `src/app/look.ts` (the profile points) + `glass.ts` (the interpolation and the inverses, tested in `tests/glass_test.ts`) — never a second curve in the paint                                                                                         |
-| A change to how sand rests or runs                   | `src/app/sand.ts` (the heightfield, tested in `tests/sand_test.ts` at real volumes) — never in the loop, and never a fraction drawn as a pile                                                                                                         |
-| A change to how long a glass runs, or how big it is  | `src/app/timer.ts` (`DURATIONS`, `sizeFor`, tested in `tests/timer_test.ts`) + the length chips in `SettingsScreen.tsx`                                                                                                                               |
-| A change to what a press or a drag on the glass does | `src/app/Hourglass.tsx` (the gestures) with the edit as a pure function in `timer.ts`                                                                                                                                                                 |
-| A change to how the picture is lit or painted        | `src/app/scene.ts` (the camera and the light, tested), `paintGlass.ts` (the glass), `paintSand.ts` (the sand and the stream) or `paint.ts` (the frame and the order) — colours come from the spec, never from a screen                                |
-| A change to how the phone turns the glass            | `src/app/useGravity.ts` (the sign and the hysteresis, tested in `tests/gravity_test.ts`) — never a second reading of the sensor, and never a reading kept                                                                                             |
-| A new setting                                        | `src/app/useAppSettings.ts` (shape + clamping, tested in `tests/settings_test.ts`) + a `Section` in `SettingsScreen.tsx`                                                                                                                              |
-| Something only the desk does                         | Behind `useDesk()` in `App.tsx`, or a `lg:` class / `@media (min-width: 64rem)` rule — the phone shell stays as it is                                                                                                                                 |
-| A new developer-only affordance                      | `src/app/dev/`, revealed behind `settings.devMode` in `SettingsScreen.tsx`                                                                                                                                                                            |
-| A change to what the demo shows                      | `src/app/dev/demo.ts`, with tests in `tests/demo_test.ts`, which opens it at hours around the clock                                                                                                                                                   |
-| Anything in the native wrapper                       | `native/...` — and read "The native wrapper" above first                                                                                                                                                                                              |
-| Anything in the desktop shell                        | `tauri/shell/` for a decision, `tauri/src-tauri/` for an effect — and read `tauri/README.md` first                                                                                                                                                    |
-| Any user-facing string                               | `src/app/i18n/en.ts`, never inline in a component                                                                                                                                                                                                     |
-| A shared UI primitive                                | The framework, if it is domain-free; `src/app/` only if it is hourglass-specific                                                                                                                                                                      |
+| Change                                                     | Goes in                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A new top, glass, sand or preset                           | Run the `add-hourglass-look` skill (`.agents/skills/add-hourglass-look/`): `src/app/look.ts` (id + spec, walked by `tests/look_test.ts`), a string in `en.ts`, and `make shots` to look at it — named for where you would find one, never for a maker                                                       |
+| A change to a glass's shape                                | `src/app/look.ts` (the profile points) + `glass.ts` (the interpolation and the inverses, tested in `tests/glass_test.ts`) — never a second curve in the paint                                                                                                                                               |
+| A change to how sand rests or runs                         | `src/app/sand.ts` (the heightfield, tested in `tests/sand_test.ts` at real volumes) — never in the loop, and never a fraction drawn as a pile                                                                                                                                                               |
+| A change to how long a glass runs, or how big it is        | `src/app/timer.ts` (`DURATIONS`, `sizeFor`, tested in `tests/timer_test.ts`) + the length chips in `SettingsScreen.tsx`                                                                                                                                                                                     |
+| A change to what a press or a drag on the glass does       | `src/app/Hourglass.tsx` (the gestures) with the edit as a pure function in `timer.ts`                                                                                                                                                                                                                       |
+| A change to how the picture is lit or painted              | `src/app/scene.ts` (the camera and the light, tested), `paintGlass.ts` (the glass), `paintSand.ts` (the sand and the stream) or `paint.ts` (the frame and the order) — colours come from the spec, never from a screen; and the painter's own drawing stays the fallback under every sprite                 |
+| A better plate, post, finial, glass or grain               | Run the `blender-assets` skill (`.agents/skills/blender-assets/`): `scripts/blender/hourglass.py` and `lib.py`, off numbers the driver takes from `look.ts` / `glass.ts`, then `make blender` into `public/models/` (held to `look.ts` by `tests/sprites_test.ts`) — never a dimension typed in the builder |
+| A change to how the phone turns, tilts or shakes the glass | `src/app/useMotion.ts` (the readings, the hysteresis, the lean and its cap, the shake — tested in `tests/motion_test.ts`) + `sand.ts` for what the sand does with it — never a second reading of the sensor, and never a reading kept                                                                       |
+| A change to what a tilt or a shake does to the sand        | `src/app/sand.ts` (`setTilt`, `jolt`, `give` — tested in `tests/sand_test.ts` at real angles) + `Hourglass.tsx` for when the run halts — never in the painter                                                                                                                                               |
+| A new setting                                              | `src/app/useAppSettings.ts` (shape + clamping, tested in `tests/settings_test.ts`) + a `Section` in `SettingsScreen.tsx`                                                                                                                                                                                    |
+| Something only the desk does                               | Behind `useDesk()` in `App.tsx`, or a `lg:` class / `@media (min-width: 64rem)` rule — the phone shell stays as it is                                                                                                                                                                                       |
+| A new developer-only affordance                            | `src/app/dev/`, revealed behind `settings.devMode` in `SettingsScreen.tsx`                                                                                                                                                                                                                                  |
+| A change to what the demo shows                            | `src/app/dev/demo.ts`, with tests in `tests/demo_test.ts`, which opens it at hours around the clock                                                                                                                                                                                                         |
+| Anything in the native wrapper                             | `native/...` — and read "The native wrapper" above first                                                                                                                                                                                                                                                    |
+| Anything in the desktop shell                              | `tauri/shell/` for a decision, `tauri/src-tauri/` for an effect — and read `tauri/README.md` first                                                                                                                                                                                                          |
+| Any user-facing string                                     | `src/app/i18n/en.ts`, never inline in a component                                                                                                                                                                                                                                                           |
+| A shared UI primitive                                      | The framework, if it is domain-free; `src/app/` only if it is hourglass-specific                                                                                                                                                                                                                            |
 
 ## Test conventions
 
 Tests live in `tests/` with a `_test` suffix and run under Vitest in the `node`
 environment — they cover the pure modules (`look`, `glass`, `sand`, `timer`,
-`useGravity`'s pure half, the settings parser, the demo seed, the app's name)
-and the strings the wrappers and the app have to agree on
-(`native_theme_test.ts`, `native_bundle_test.ts`, `native_icon_test.ts`,
-`store_listing_test.ts`, `store_preflight_test.ts`). No DOM, no
-testing-library, no mocked clock. `tests/fixtures/` holds shared fixtures when
-a test needs one.
+`useMotion`'s pure half, the settings parser, the demo seed, the app's name),
+the modelled parts' manifest against `look.ts` (`sprites_test.ts`), and the
+strings the wrappers and the app have to agree on (`native_theme_test.ts`,
+`native_bundle_test.ts`, `native_icon_test.ts`, `store_listing_test.ts`,
+`store_preflight_test.ts`). No DOM, no testing-library, no mocked clock.
+`tests/fixtures/` holds shared fixtures when a test needs one.
 
 `make test` runs them all; run one file with `npx vitest run tests/sand_test.ts`.
 Use the Node `.nvmrc` pins (from nvm). `tests/demo_test.ts` opens the demo at
@@ -420,20 +474,21 @@ with `[Learn more](feature:<slug>)`.
 
 ## Documentation sync points
 
-| If you change…            | Update…                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `sand.ts` or `glass.ts`   | `docs/design.md` (the model), `docs/features/hourglass.md`                                                                    |
-| `timer.ts`                | `docs/features/hourglass.md` (the lengths and the size), the README's Usage table                                             |
-| `look.ts`                 | `docs/features/looks.md` (the tables of tops, glasses, sands and presets), the README's Settings row, the counts in this file |
-| `paint*.ts` or `scene.ts` | `docs/design.md` (the picture)                                                                                                |
-| `useGravity.ts`           | `docs/features/hourglass.md` (turning it with the phone) and the privacy sentence in `en.ts`                                  |
-| `useAppSettings.ts`       | `docs/configuration.md` (the runtime settings table)                                                                          |
-| A `VITE_*` variable       | `docs/configuration.md`, `src/vite-env.d.ts`, the README's Configuration table, and the workflows that pass it                |
-| A screen's behaviour      | The matching `docs/features/*.md` and the README's Usage table                                                                |
-| Anything under `native/`  | `docs/features/native-app.md`, `native/README.md`, `native/RELEASING.md`                                                      |
-| Anything under `tauri/`   | `docs/features/desktop-app.md`, `tauri/README.md`                                                                             |
-| Module layout             | The "Where new code goes" table above and `docs/architecture.md`                                                              |
-| A make target or script   | `CONTRIBUTING.md`, the README's Quick start, and this file's command list                                                     |
+| If you change…                     | Update…                                                                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `sand.ts` or `glass.ts`            | `docs/design.md` (the model), `docs/features/hourglass.md`                                                                    |
+| `timer.ts`                         | `docs/features/hourglass.md` (the lengths and the size), the README's Usage table                                             |
+| `look.ts`                          | `docs/features/looks.md` (the tables of tops, glasses, sands and presets), the README's Settings row, the counts in this file |
+| `paint*.ts` or `scene.ts`          | `docs/design.md` (the picture)                                                                                                |
+| `useMotion.ts`                     | `docs/features/hourglass.md` (turning, tilting and shaking it) and the privacy sentence in `en.ts`                            |
+| `scripts/blender/**`, `sprites.ts` | `docs/design.md` (the modelled parts), the `blender-assets` skill's tables                                                    |
+| `useAppSettings.ts`                | `docs/configuration.md` (the runtime settings table)                                                                          |
+| A `VITE_*` variable                | `docs/configuration.md`, `src/vite-env.d.ts`, the README's Configuration table, and the workflows that pass it                |
+| A screen's behaviour               | The matching `docs/features/*.md` and the README's Usage table                                                                |
+| Anything under `native/`           | `docs/features/native-app.md`, `native/README.md`, `native/RELEASING.md`                                                      |
+| Anything under `tauri/`            | `docs/features/desktop-app.md`, `tauri/README.md`                                                                             |
+| Module layout                      | The "Where new code goes" table above and `docs/architecture.md`                                                              |
+| A make target or script            | `CONTRIBUTING.md`, the README's Quick start, and this file's command list                                                     |
 
 ## Parity and cross-cutting rules
 
@@ -464,7 +519,9 @@ with `[Learn more](feature:<slug>)`.
   `@fontsource` package imported in `main.tsx` a weight at a time and bundled
   from this origin), and workbox-window. A new runtime dependency needs a
   reason that the framework can't serve. A font is never reached for over the
-  network.
+  network, and neither is a sprite: the modelled parts are files under
+  `public/`, from this origin, and Blender is a build tool that never runs
+  in the app.
 
 ## Website staleness
 
@@ -491,3 +548,4 @@ mapping, and a `.last-updated` marker.
 | `update-docs`        | `src/app/` changed in a way a `docs/` topic describes                                                                                         |
 | `update-readme`      | Commands, configuration, or the feature set changed                                                                                           |
 | `add-hourglass-look` | A new top, glass, sand or preset is asked for — often from a photograph of a real hourglass; keeps makers' names and trademarked features out |
+| `blender-assets`     | A frame, a glass or the grain is to be modelled better, or a new top or glass needs its sprites — `make blender` and everything around it     |

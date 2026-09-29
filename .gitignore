@@ -45,3 +45,8 @@ tauri/target/
 tauri/webroot/*
 !tauri/webroot/.gitkeep
 tauri/src-tauri/gen/
+
+# Photographed surfaces fetched by scripts/blender.mjs (CC0, never committed)
+.cache/
+# The Blender lab's own stills
+previews/

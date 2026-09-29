@@ -61,13 +61,14 @@ the app keeps time and sand apart:
   much had already run through; the share through at any moment is a function
   of the wall clock, never a count of frames. A glass that has been in a
   background tab is right the first frame back.
-- **Sand** is `sand.ts`: each bulb is a radial heightfield — thirty-two
-  rings from the axis to the wall, each a height above the end the sand rests
-  against, which is the plate in the lower bulb and the waist in the upper.
-  The heights are volume-exact: a ring's volume is its area times its
-  height, and the area comes from the bulb's shape read the other way round
-  (`taper` and `dome` in `glass.ts`, the height at which the wall stands at a
-  given radius).
+- **Sand** is `sand.ts`: each bulb is a heightfield of cells — thirty-two
+  rings from the axis to the wall, each cut into twenty-four spokes, each
+  cell a height above the end the sand rests against, which is the plate in
+  the lower bulb and the waist in the upper. The heights are volume-exact:
+  a cell's volume is its share of the ring's area times its height, and the
+  area comes from the bulb's shape read the other way round (`taper` and
+  `dome` in `glass.ts`, the height at which the wall stands at a given
+  radius). The spokes are what let a heap lean.
 
 Each frame, `drain` takes from the axis of the upper bulb exactly the volume
 the clock says has gone, `pour` lands it on the axis of the lower, and
@@ -83,6 +84,35 @@ The rate, the amount and the clock are the same for all of them.
 A big jump (a turn, the tab coming back) settles the heaps in one go
 (`settle`), because animating a landslide nobody watched is a lie in the
 other direction.
+
+### Tilting and shaking
+
+The phone is the glass. Its orientation gives gravity in the screen's
+plane (`useMotion.ts`): which way is down decides which bulb runs, and how
+far it leans across the screen — the tangent of the tilt — is handed to
+both heaps as a lean (`setTilt`). A level surface under leaning gravity
+stands, in the glass's own frame, higher on the side the glass leans down
+towards, by the tangent times the distance across; so every cell carries
+that correction, and the angle of repose is read against gravity rather
+than the axis. The heaps do not jump to the new lean — `relax` brings them
+there over the next frames, a dozen sweeps a frame, which is about how
+long sand takes. The stream falls along gravity too, so at a slant it lands
+off the axis by the slant times the fall, and the cone grows there.
+
+Past sixty degrees the hole is no longer fed and the run halts, as a real
+glass on its side stops; stood up, it goes on from where it was. A phone
+laid flat on a table does _not_ stop it: the share of gravity into the
+screen is dropped on purpose, because a timer that stopped whenever the
+phone was put down would be a worse hourglass than one that runs true.
+
+A shake is the phone's acceleration with gravity taken out, as a share of a
+hard one. While it lasts the heaps hold a flatter slope (`give`) and grains
+are thrown from cell to neighbouring cell, uphill as readily as down
+(`jolt`), in a pattern hashed from the frame count rather than drawn from
+chance, so the model stays a pure function. The stream wavers and the dust
+above the rim jumps by the same share. What a shake throws, `relax` brings
+down again — which is the churn of a shaken glass. A shake never touches
+the clock: the sand through is the sand the time says.
 
 ## The picture
 
@@ -117,7 +147,41 @@ a brighter one.
 
 **The frame** is a cylinder or a box lit by the same light, with the wood's
 grain lines or the metal's sheen drawn along it; the posts are lit round
-their circumference and a baluster's width follows its turning.
+their circumference and a baluster's width follows its turning. That is
+the painter's own drawing, and it is the fallback: what the app shows
+where it can is the modelled frame below.
+
+## The modelled parts
+
+The plates, the posts, the finials and the light on the glass are, where
+the build carries them, pictures traced in Blender rather than drawn on the
+canvas: `make blender` (`scripts/blender.mjs`, `scripts/blender/`) models
+every top and every glass off the same numbers the painter reads — the
+specs in `look.ts`, the profile as `glass.ts` interpolates it, the frame as
+`layoutOf` sizes it to each glass, even the spindle's turning — under the
+app's own light and through the app's own camera, and photographs each
+part on its own onto a transparent frame. A sprite is a picture in screen
+space; the manifest under `public/models/` says where its corner lands in
+units of the hourglass's height from the waist, so the painter places it
+by a scale and an offset. A post or a finial is rendered once and moved to
+each post by the difference of two projections, which an orthographic
+camera allows.
+
+The materials are photographed surfaces (ambientCG's, CC0): a walnut, an
+oak, a pine, a brass, a copper, a brushed steel, each tinted by the top's
+own face colour so the look stays the look's; lacquer and glass are plain
+surfaces. The glass is rendered twice over a solid core standing in for the
+sand — its highlights over black, which the painter adds, and its darkening
+over white, which the painter multiplies — so what is inside the glass is
+still the painter's to draw, and both passes hold on a light page as on a
+dark one. The sand keeps its own grain pattern, now laid over the relief of
+a photographed sand: the picture's difference from its surroundings, as a
+tile, under the specks.
+
+Where a sprite is missing or has not loaded, the painter draws its own —
+the picture above — so a build without models, or the first frame before
+they arrive, is the same hourglass a little plainer. The `blender-assets`
+skill is the loop.
 
 Nothing moves on the screen but the sand, the stream and a turn. There is no
 glint travelling round the glass and no pulse in the frame: the glass's whole

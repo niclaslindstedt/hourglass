@@ -30,6 +30,8 @@
 //   --settings            a picture of the Settings screen too
 //   --upside              the phone turned over: the sensor reports gravity
 //                         up the screen after the glass has settled
+//   --tilt    <degrees>   the phone rolled to one side by that much (+ right)
+//   --shake               the phone shaken hard, just before the picture
 //   --full                the whole screen rather than the glass
 //   --no-sheet            the pictures only, without the contact sheet
 //   --out     <dir>       where the pictures go                 (default: shots/)
@@ -70,6 +72,8 @@ const args = parseArgs(process.argv.slice(2));
 const url = args.url ?? "http://localhost:4173/";
 const out = resolve(args.out ?? "shots");
 const states = list(args.state, ["running"], STATES);
+const tiltDeg = args.tilt ? Number(args.tilt) : 0;
+if (!Number.isFinite(tiltDeg)) fail(`--tilt wants degrees, not "${args.tilt}"`);
 const shells = list(args.shell, ["phone"], Object.keys(SHELLS));
 const themes = list(args.theme, ["dark"], THEMES);
 const minutesList = list(
@@ -108,7 +112,7 @@ try {
       for (const minutes of minutesList)
         for (const shell of shells)
           for (const theme of themes) {
-            const name = `${look.name}-${state}-${minutes}m-${shell}-${theme}${args.upside ? "-upside" : ""}`;
+            const name = `${look.name}-${state}-${minutes}m-${shell}-${theme}${args.upside ? "-upside" : ""}${tiltDeg ? `-tilt${tiltDeg}` : ""}${args.shake ? "-shake" : ""}`;
             const context = await browser.newContext({
               viewport: SHELLS[shell],
               deviceScaleFactor: 2,
@@ -131,13 +135,27 @@ try {
             await page.evaluate(() => document.fonts.ready);
             // The heaps settle over the first frames.
             await page.waitForTimeout(1200);
-            if (args.upside) {
+            if (args.upside || tiltDeg) {
               // Upright first, so the second reading is a turn rather than
               // the sensor's first word on which way up the phone is.
-              await tilt(page, 90);
+              await tilt(page, 90, 0);
               await page.waitForTimeout(200);
-              await tilt(page, -90);
+              // An upright phone leaned to one side by θ reads a front-back
+              // tilt of 90° − θ and a left-right tilt of ±90°: the sensor's
+              // own way of saying it (`screenGravity`).
+              await tilt(
+                page,
+                (90 - Math.abs(tiltDeg)) * (args.upside ? -1 : 1),
+                tiltDeg > 0 ? 90 : tiltDeg < 0 ? -90 : 0,
+              );
               await page.waitForTimeout(1600);
+            }
+            if (args.shake) {
+              for (let k = 0; k < 6; k++) {
+                await shake(page, 16);
+                await page.waitForTimeout(60);
+              }
+              await page.waitForTimeout(80);
             }
             await page.screenshot({
               path: `${out}/${name}.png`,
@@ -252,18 +270,37 @@ function seed({ state, minutes, at, settings }) {
 /** A reading from the phone's orientation sensor: `beta` is the
  *  front-back tilt, 90 for a phone held upright and −90 for one turned
  *  over. */
-async function tilt(page, beta) {
-  await page.evaluate((b) => {
+async function tilt(page, beta, gamma) {
+  await page.evaluate(
+    ([b, g]) => {
+      /* eslint-disable no-undef -- runs in the page */
+      const event = new DeviceOrientationEvent("deviceorientation", {
+        alpha: 0,
+        beta: b,
+        gamma: g,
+        absolute: false,
+      });
+      window.dispatchEvent(event);
+      /* eslint-enable no-undef */
+    },
+    [beta, gamma],
+  );
+}
+
+/** A reading from the phone's accelerometer with gravity taken out: a
+ *  shake of `a` m/s² along the screen. */
+async function shake(page, a) {
+  await page.evaluate((x) => {
     /* eslint-disable no-undef -- runs in the page */
-    const event = new DeviceOrientationEvent("deviceorientation", {
-      alpha: 0,
-      beta: b,
-      gamma: 0,
-      absolute: false,
+    const event = new DeviceMotionEvent("devicemotion", {
+      acceleration: { x, y: 0, z: 0 },
+      accelerationIncludingGravity: { x, y: 9.8, z: 0 },
+      rotationRate: { alpha: 0, beta: 0, gamma: 0 },
+      interval: 16,
     });
     window.dispatchEvent(event);
     /* eslint-enable no-undef */
-  }, beta);
+  }, a);
 }
 
 /** The glass, as a clip inside the viewport. */
@@ -290,6 +327,7 @@ function parseArgs(argv) {
     if (
       key === "settings" ||
       key === "upside" ||
+      key === "shake" ||
       key === "full" ||
       key === "no-sheet" ||
       next === undefined ||

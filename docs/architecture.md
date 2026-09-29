@@ -7,7 +7,7 @@ below runs in the browser tab.
 index.html
   └── src/main.tsx            mounts <App> inside the i18n LanguageRoot
        └── src/App.tsx        theme, settings, the run, the sensor, the wake lock, the cog
-            ├── Hourglass         the glass — the whole screen, and every gesture on it
+            ├── Hourglass         the glass — the whole screen, every gesture on it, and the phone's readings
             ├── TopBar            the bar the phone's Settings screen sits under (never over the glass)
             ├── SettingsScreen    settings, developer tools, about — a screen on the phone
             └── SidePanel         the same on the desk, over the right-hand edge
@@ -15,16 +15,17 @@ index.html
 src/app/
   look.ts           the vocabulary: tops, glasses, sands, the ten presets; the two themes
   glass.ts          a glass's profile as a curve, and a bulb's shape read both ways        (pure)
-  sand.ts           a bulb's sand as a radial heightfield: fill, drain, pour, relax, settle (pure, clock-free)
+  sand.ts           a bulb's sand as cells: fill, drain, pour, relax, settle; a lean, a shake (pure, clock-free)
   timer.ts          how long a glass runs, how big it is, and where a run stands           (pure, clock-free)
   scene.ts          the camera, the light, and a heap's surface as lit facets              (pure)
   frame.ts          what one painted frame is made of
+  sprites.ts        the modelled parts (public/models/, made by `make blender`), loaded once each
   paint.ts          the picture, back to front: the table, the plates, the posts, the order
   paintGlass.ts     the glass: its outline, its back wall, its front wall and the light on it
   paintSand.ts      the sand: the facets, the grain, the clinging grains, the stream
-  Hourglass.tsx     the glass on the screen: the loop, the turn, the drag, the sensor's turn
+  Hourglass.tsx     the glass on the screen: the loop, the turn, the drag, the phone's turn, lean and shake
   HourglassPicker.tsx  the preset cards and the Custom chips in Settings
-  useGravity.ts     which way is down, read off the phone; the sign and its hysteresis
+  useMotion.ts      the phone's readings: which way is down, how it leans, how hard it is shaken
   useRun.ts         the run, persisted per device
   useAppSettings.ts the settings blob, clamped on read
   shape.ts          phone or desk — the one edge the shell is cut at
@@ -37,6 +38,8 @@ native/             the thin Expo wrapper — a separate npm project (see below)
   App.tsx           a WebView over the bundled build, and nothing else
   src/local-server.ts   unpacks the packed build and serves it on a fixed loopback port
   src/injected.ts   the theme reporter, and the service-worker teardown
+
+public/models/      the frames and the glasses modelled in Blender off look.ts (scripts/blender/), with their manifest
 
 tauri/              the thin desktop shell — a Rust project (see below)
   shell/            every decision: the origin, the window, what a request resolves to

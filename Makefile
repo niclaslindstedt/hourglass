@@ -1,4 +1,4 @@
-.PHONY: demo build test lint fmt fmt-check actionlint release clean docs website website-dev install icons changelog bump shots native-install native-bundle native-typecheck native-prebuild store-preflight store-metadata store-upload tauri tauri-bundle tauri-clean tauri-fast tauri-fmt tauri-fmt-check tauri-install tauri-lint tauri-package tauri-package-debug tauri-test
+.PHONY: demo build test lint fmt fmt-check actionlint release clean docs website website-dev install icons changelog bump shots blender native-install native-bundle native-typecheck native-prebuild store-preflight store-metadata store-upload tauri tauri-bundle tauri-clean tauri-fast tauri-fmt tauri-fmt-check tauri-install tauri-lint tauri-package tauri-package-debug tauri-test
 
 build:
 	npm run build
@@ -39,6 +39,15 @@ icons:
 # Needs playwright, installed outside the lockfile — the script says how.
 shots:
 	npm run build && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/glass-shots.mjs $(ARGS)
+
+# The modelled parts: every frame and every glass built in Blender off
+# look.ts and photographed by the app's own camera into public/models/, the
+# sprites paint.ts composites (scripts/blender.mjs, the blender-assets
+# skill). Needs Blender as python3's `bpy` module (`pip install bpy`) or on
+# the PATH, and fetches its CC0 textures into .cache/ the first time. Pass
+# the script's options through ARGS: `make blender ARGS="--top walnut"`.
+blender:
+	node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/blender.mjs $(ARGS)
 
 # --- the native wrapper (native/) -------------------------------------------
 #

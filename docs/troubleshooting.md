@@ -24,6 +24,21 @@ asked for the first time you press the glass, and if it was refused, allow it
 under the browser's site settings (or the phone's Settings for the app) and
 press again. A desktop has no sensor, and the glass turns by tap alone.
 
+**The sand stopped when I tilted the phone.** Past sixty degrees from
+upright the hole is not fed, as in a real glass on its side; stand the phone
+up and the run goes on from where it was, the pause not counted. A phone
+laid flat on a table does not stop it.
+
+**Shaking does nothing.** The shake reads the motion sensor, which an iPhone
+grants with the orientation sensor on the first press; **Turn with the
+phone** off turns both off. A gentle movement is under the threshold — a
+shake is a shake.
+
+**The frame looks plain, or changed after a moment.** The modelled frame
+and glass are pictures the app fetches from its own files; until they
+arrive the painter draws its own plainer version, and a build without
+`public/models/` shows that version always.
+
 **The screen went to sleep mid-run.** **Keep the screen on** is off, or the
 browser refused the wake lock (an iPhone in Low Power Mode does). The sand is
 still right when the screen comes back: the run is read off the clock.

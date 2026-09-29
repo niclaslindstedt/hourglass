@@ -32,16 +32,16 @@ git diff --name-only "${BASELINE:-$(git rev-list --max-parents=0 HEAD)}"..HEAD
 
 ## Mapping
 
-| Changed source                          | README section                                      |
-| --------------------------------------- | --------------------------------------------------- |
-| `Makefile`, `package.json` scripts      | Quick start; the command list in `AGENTS.md` too    |
-| `src/vite-env.d.ts`, `vite.config.ts`   | Configuration table                                 |
-| `src/app/sand.ts`, `timer.ts` exports   | Examples block                                      |
-| `src/app/Hourglass.tsx`, `timer.ts`     | Usage table (the gestures and the lengths)          |
-| `src/app/look.ts`, `SettingsScreen.tsx` | The What section's count of looks; the Settings row |
-| `docs/*.md` added or renamed            | Documentation list                                  |
-| `.github/workflows/*.yml`               | Badge row                                           |
-| `LICENSE`                               | License section and the license badge               |
+| Changed source                                      | README section                                      |
+| --------------------------------------------------- | --------------------------------------------------- |
+| `Makefile`, `package.json` scripts                  | Quick start; the command list in `AGENTS.md` too    |
+| `src/vite-env.d.ts`, `vite.config.ts`               | Configuration table                                 |
+| `src/app/sand.ts`, `timer.ts` exports               | Examples block                                      |
+| `src/app/Hourglass.tsx`, `timer.ts`, `useMotion.ts` | Usage table (the gestures, the lengths, the phone)  |
+| `src/app/look.ts`, `SettingsScreen.tsx`             | The What section's count of looks; the Settings row |
+| `docs/*.md` added or renamed                        | Documentation list                                  |
+| `.github/workflows/*.yml`                           | Badge row                                           |
+| `LICENSE`                                           | License section and the license badge               |
 
 ## Update checklist
 

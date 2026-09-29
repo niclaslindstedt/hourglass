@@ -19,6 +19,7 @@ import {
   type Top,
 } from "./look.ts";
 import { glassLight, grainPattern, paintHourglass } from "./paint.ts";
+import { useSprites } from "./sprites.ts";
 import { capacity, createBulb, funnelFill, pileFill } from "./sand.ts";
 import { PITCH, YAW } from "./scene.ts";
 import { FILL, pageIsLight } from "./Hourglass.tsx";
@@ -182,6 +183,7 @@ export function MiniGlass({
   className?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const sprites = useSprites(look);
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
@@ -208,22 +210,28 @@ export function MiniGlass({
       source,
       sink,
       gravity: 1,
+      tilt: 0,
+      shake: 0,
       flow: 1,
       t: 0,
       glow: 0,
       dpr,
-      grain: grainPattern(ctx, SAND[look.sand], dpr),
-      glassLight: glassLight(
-        layout,
-        GLASS[look.glass],
-        h * 0.88,
-        PITCH,
-        dpr,
-        pageIsLight(),
-      ),
+      grain: grainPattern(ctx, SAND[look.sand], dpr, sprites?.grain ?? null),
+      glassLight:
+        sprites?.glassAdd && sprites.glassMultiply
+          ? null
+          : glassLight(
+              layout,
+              GLASS[look.glass],
+              h * 0.88,
+              PITCH,
+              dpr,
+              pageIsLight(),
+            ),
       light: pageIsLight(),
+      sprites,
     });
-  }, [look]);
+  }, [look, sprites]);
   return (
     <canvas
       ref={canvas}

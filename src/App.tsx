@@ -22,10 +22,10 @@ import { newRun, type Run } from "./app/timer.ts";
 import { TopBar } from "./app/TopBar.tsx";
 import { useAppSettings, type AppSettings } from "./app/useAppSettings.ts";
 import {
-  gravityNeedsPermission,
-  requestGravity,
-  useGravity,
-} from "./app/useGravity.ts";
+  motionNeedsPermission,
+  requestMotion,
+  useMotion,
+} from "./app/useMotion.ts";
 import { useRun } from "./app/useRun.ts";
 import { useDesk } from "./app/useShape.ts";
 import { status } from "./output.ts";
@@ -71,6 +71,13 @@ export function App() {
       }));
     else persisted.turnNow();
   }, [persisted]);
+  const setRun = useCallback(
+    (next: Run) => {
+      if (DEMO) setDemoRun(next);
+      else persisted.setRun(next);
+    },
+    [persisted],
+  );
   const setMinutes = useCallback(
     (minutes: number) => {
       update("minutes", minutes);
@@ -86,11 +93,11 @@ export function App() {
   // Which way up the phone is. On iOS the sensor has to be asked for from
   // a tap, so the first press on the glass asks; until it is granted the
   // glass is turned by tapping alone.
-  const [granted, setGranted] = useState(() => !gravityNeedsPermission());
-  const { gravity } = useGravity(settings.sensor && granted);
-  const askGravity = useCallback(() => {
+  const [granted, setGranted] = useState(() => !motionNeedsPermission());
+  const motion = useMotion(settings.sensor && granted);
+  const askMotion = useCallback(() => {
     if (!settings.sensor || granted) return;
-    void requestGravity().then((ok) => {
+    void requestMotion().then((ok) => {
       if (ok) setGranted(true);
     });
   }, [settings.sensor, granted]);
@@ -193,9 +200,10 @@ export function App() {
             <Hourglass
               look={look}
               run={run}
-              gravity={settings.sensor ? gravity : 1}
-              onPress={askGravity}
+              motion={motion}
+              onPress={askMotion}
               onTurn={turnNow}
+              onRun={setRun}
               onMinutes={setMinutes}
               onDone={onDone}
               className="min-h-0 flex-1"
