@@ -1,0 +1,199 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+/* App stylesheet.
+
+     1. Tailwind v4 base + utilities.
+     2. The framework's prebuilt stylesheet — the theme-token map, the button /
+        elevation flavours, and every preset palette.
+     3. `@source` — scan the installed framework package so the utility classes
+        its components use are emitted into this app's CSS.
+     4. App-shell layout: the html/body reset that makes this a full-viewport,
+        non-scrolling PWA, and the safe-area padding the corners need. */
+
+@import "tailwindcss";
+@import "@niclaslindstedt/oss-framework/styles.css";
+
+@source "../node_modules/@niclaslindstedt/oss-framework/dist";
+
+/* ── Corners ─────────────────────────────────────────────────────────────────
+   The radius scale continues the engine's `--radius-sm|md|lg` (written onto
+   <html> at paint time) so `rounded-xl` stays rounder than `rounded-lg`. */
+@theme {
+  --radius: 0.625rem;
+  --radius-xs: 0.25rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+}
+
+/* ── The wordmark ──────────────────────────────────────────────────────── */
+.app-wordmark {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── Toasts ──────────────────────────────────────────────────────────────
+   Both kinds wear the app's own colours; the difference is loudness. */
+.app-toasts [data-kind="success"] {
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  background-color: color-mix(in oklab, var(--accent) 12%, var(--surface-2));
+}
+
+.app-toasts [data-kind="success"] > span[aria-hidden="true"] {
+  background-color: var(--accent);
+}
+
+.app-toasts [data-kind="danger"] {
+  border-color: var(--danger);
+  background-color: color-mix(in oklab, var(--danger) 32%, var(--surface-2));
+}
+
+.app-toasts [data-kind="danger"] > span[aria-hidden="true"] {
+  background-color: var(--danger);
+}
+
+/* ── Pointer affordance ──────────────────────────────────────────────────
+   Tailwind v4's preflight stopped restoring `cursor: pointer` on buttons. */
+button,
+summary,
+select,
+[role="button"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────
+   The app fills the viewport and never scrolls as a document. `100dvh`
+   rather than `100vh`: on mobile Safari the large unit would put the foot
+   of the screen under the browser's own chrome until the toolbar collapses. */
+html,
+body {
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--fg);
+  font-family: var(--app-font-family, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Installed iOS PWA edge-to-edge under the home indicator: iOS only extends
+   the page under it when the root carries a fixed `100vh`. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    html,
+    body,
+    #root {
+      height: 100vh;
+    }
+  }
+}
+
+/* The header pads down from the status bar: the larger of its own padding
+   and the inset, so an installed PWA paints edge to edge. */
+.app-header {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* The glass has no bar over it and pads down from the status bar itself,
+   and up from the home indicator. */
+.app-bare {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* The cog floats in the top right corner of the screen, clear of the notch. */
+.app-cog {
+  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
+}
+
+/* ── Selection, and the lens a caret is placed with ──────────────────────
+   The app is an instrument rather than a document: a press held on the
+   glass is a drag, not the start of a selection, and on iOS not the glass a
+   caret is placed with. Selection is put back where there is text somebody
+   would want: a field's own value, and the log viewer's monospaced blocks. */
+html {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+:is(textarea, [contenteditable="true"], pre, code),
+input:not(
+  [type="button"],
+  [type="checkbox"],
+  [type="radio"],
+  [type="range"],
+  [type="submit"]
+) {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────
+   A thin pill in the theme's own ink over no track, following light and
+   dark because it is mixed from `--fg`. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--fg) 28%, transparent) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--fg) 28%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+/* ── The desk's panel ──────────────────────────────────────────────────── */
+.app-panel {
+  animation: app-panel-in 180ms ease-out;
+}
+
+@keyframes app-panel-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-panel {
+    animation: none;
+  }
+}

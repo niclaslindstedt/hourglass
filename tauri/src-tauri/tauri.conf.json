@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hourglass",
+  "mainBinaryName": "hourglass",
+  "version": "../../package.json",
+  "identifier": "dev.local.hourglass",
+  "build": {
+    "frontendDist": "./placeholder"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage", "app", "dmg", "nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/512x512.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../webroot": "webroot"
+    },
+    "category": "Productivity",
+    "shortDescription": "an hourglass on your desk",
+    "longDescription": "An hourglass: a glass of sand you turn over with a click, sized to the minutes you want. Nothing leaves your machine.",
+    "copyright": "Copyright © Niclas Lindstedt",
+    "macOS": {
+      "entitlements": "entitlements.mac.plist",
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

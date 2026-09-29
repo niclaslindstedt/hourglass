@@ -1,0 +1,228 @@
+name: release
+
+# Step two of the release pipeline: triggered by the `v*` tag
+# `version-bump.yml` pushes. It builds the tagged tree, publishes a GitHub
+# Release whose notes are that version's CHANGELOG section, and chains into
+# `pages.yml` so the new tag is served at `/` immediately rather than waiting
+# for the next push to main.
+#
+# The app is not published to any package registry — it is a website, and
+# `pages.yml` is where it ships — so there is no publish job and no long-lived
+# registry token anywhere in this pipeline.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  # npm ci resolves @niclaslindstedt/oss-framework from GitHub Packages.
+  packages: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@niclaslindstedt"
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the tag
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # A tag that doesn't build must not become a release — the deploy below
+      # would fail on the same tree minutes later, with the release already
+      # published.
+      - name: Sanity build
+        run: npm run build
+        env:
+          VITE_BASE: /
+          VITE_PWA_IGNORE_PATHS: /preview/
+
+      # The macOS paragraph says what the `.dmg` actually is: notarized only
+      # when both the certificate and the notarizing account are configured —
+      # the same condition the `desktop` job's signing turns on.
+      - name: Extract release notes
+        env:
+          NOTARIZED: ${{ secrets.MAC_CSC_LINK != '' && secrets.APPLE_ID != '' }}
+        run: |
+          node scripts/release/extract-section.mjs "${{ steps.meta.outputs.version }}" > .release-notes.md
+          if [ "$NOTARIZED" = "true" ]; then
+            cat >> .release-notes.md <<'NOTES'
+
+          ---
+
+          **macOS:** the `.dmg` is signed and notarized by Apple — it opens like
+          any other app.
+          NOTES
+          else
+            cat >> .release-notes.md <<'NOTES'
+
+          ---
+
+          **macOS:** the app is signed but not notarized, so the first launch is
+          refused. Open **System Settings → Privacy & Security**, scroll to the
+          message about Hourglass and choose **Open Anyway**. macOS remembers after
+          that.
+          NOTES
+          fi
+
+      # A DRAFT, and the `publish` job at the bottom is what makes it public —
+      # once every platform's installers are attached to it. Published here
+      # instead, the release would be visible the moment the tag exists, which
+      # is many minutes before three desktop runners finish and regardless of
+      # whether they succeed at all: a Windows packaging failure
+      # (`fail-fast: false`, so the other two carry on) would leave a public
+      # release whose Windows download simply is not there, and the people who
+      # find it are the ones who came to download the app.
+      #
+      # Idempotent on purpose: the tag is already pushed by the step above, so a
+      # bare `gh release create` that fails (or a re-run after one did) would
+      # leave a tagged version with no release at all. Creating-or-updating
+      # makes the recovery GitHub's own "re-run failed jobs", which replays this
+      # job against the version already in `steps.meta.outputs` rather than
+      # cutting a second one — and the edit deliberately does NOT pass
+      # `--draft`, so re-running against a release that is already public
+      # refreshes its notes instead of retracting it.
+      - name: Create GitHub Release (draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — updating its notes."
+            gh release edit "$TAG" --title "$TAG" --notes-file .release-notes.md
+          else
+            gh release create "$TAG" --draft --title "$TAG" --notes-file .release-notes.md
+          fi
+
+  # THE DOWNLOADS. One runner per platform, because each packages the app for
+  # its own OS and an installer has to be built where the app was: an `.msi`
+  # and `.exe` on Windows, a `.dmg` on macOS, a `.deb` and an `.AppImage` on
+  # Linux.
+  #
+  # It checks out the TAG rather than main, so what ships is exactly what was
+  # released — the tag names the release commit, which carries the changelog and
+  # the bumped `package.json`, and `tauri.conf.json` reads its version straight
+  # out of that file.
+  desktop:
+    needs: release
+    name: desktop (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos
+          - os: ubuntu-latest
+            target: linux
+    runs-on: ${{ matrix.os }}
+    permissions:
+      # contents: write — the installers are uploaded onto the GitHub Release.
+      contents: write
+      # npm ci resolves @niclaslindstedt/oss-framework from GitHub Packages.
+      packages: read
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: ./.github/actions/package-desktop
+        with:
+          target: ${{ matrix.target }}
+          npm-token: ${{ secrets.GITHUB_TOKEN }}
+          display-name: ${{ secrets.APP_DISPLAY_NAME }}
+          bundle-id: ${{ secrets.APP_BUNDLE_ID }}
+          release: "true"
+          # macOS SIGNING — optional, but the build is never left unsigned.
+          #
+          # Apple Silicon refuses to execute unsigned arm64 code and reports it
+          # to the user as "the app is damaged", so an unsigned arm64 download
+          # is not a download at all. With no certificate the app is signed AD
+          # HOC: it runs natively and the user answers one Gatekeeper prompt.
+          # With MAC_CSC_LINK the certificate is imported and the app signed
+          # with it, and with the APPLE_ID trio as well it is notarized.
+          # package-desktop hands the certificate to
+          # .github/actions/apple-signing, the one place it is imported.
+          apple-certificate: ${{ secrets.MAC_CSC_LINK }}
+          apple-certificate-password: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          apple-signing-identity: ${{ secrets.MAC_SIGN_IDENTITY }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Whatever this platform's bundler produced, BY EXTENSION — a step that
+      # listed filenames would silently upload nothing the day a target changed
+      # its suffix, and `if-no-files-found` has no equivalent here.
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob globstar
+          assets=(tauri/target/release/bundle/**/*.{dmg,deb,AppImage,exe,msi})
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "::error::${{ matrix.target }} produced no distributable files"
+            ls -R tauri/target/release/bundle || true
+            exit 1
+          fi
+          printf 'uploading %s\n' "${assets[@]}"
+          gh release upload "$TAG" "${assets[@]}" --clobber
+
+  # THE RELEASE BECOMES VISIBLE HERE, and nowhere else: `needs: desktop` means
+  # every platform in the matrix has packaged AND uploaded before anybody can
+  # see the release page. If one target fails, the draft stays a draft — a
+  # release missing a download is a bug report from every user on that
+  # platform, and the fix (re-dispatch, or upload the installer by hand) is
+  # much cheaper while nobody has seen it yet.
+  publish:
+    needs: [release, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      # contents: write — this is the flag flip on the release itself.
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          gh release edit "$TAG" --draft=false --latest
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | "published asset: \(.name)"'
+
+  deploy:
+    # Chain into pages.yml so the new tag is served at `/` immediately.
+    needs: release
+    uses: ./.github/workflows/pages.yml
+    with:
+      release_ref: ${{ needs.release.outputs.tag }}
+    permissions:
+      # A reusable workflow can't be granted fewer permissions than it
+      # requests, so these must match pages.yml's own block or the whole run
+      # fails at startup before any job executes.
+      contents: read
+      pages: write
+      id-token: write
+      packages: read
+    secrets: inherit
