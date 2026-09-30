@@ -16,3 +16,8 @@ native/node_modules/
 # The desktop shell's build output and the site copied into it.
 tauri/target/
 tauri/webroot/
+
+# The screenshot skill's own build, pictures and dependencies (gitignored).
+.agents/skills/screenshot/.build/
+.agents/skills/screenshot/out/
+.agents/skills/*/node_modules/

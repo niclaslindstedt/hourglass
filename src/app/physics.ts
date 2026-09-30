@@ -20,17 +20,18 @@ import {
 // Hutter's depth-averaged avalanche equations):
 //
 //   THE DENSE LAYER is the heap (`sand.ts`'s cells), and on it a thin
-//   flowing layer with momentum. Every edge between two cells carries a
-//   speed. Gravity along the surface drives it and Coulomb friction holds
-//   it back, with the two friction angles real sand has: an avalanche
-//   starts only where the slope passes the STATIC angle (the angle of
-//   repose plus about two and a half degrees, as measured on dune slip
-//   faces), and once moving it runs until the slope is down to the
-//   DYNAMIC one — so a heap fed from above grows past its angle, lets go
-//   in a slump, and stops a little flatter, the way the cone under an
-//   hourglass's stream does. A slope a flow is running down takes time to
-//   come down: the sand has to speed up, and it is only as fast as a
-//   layer a few millimetres thick can carry.
+//   flowing layer with momentum: every edge between two cells carries a
+//   speed, driven by gravity along the slope and held back by the basal
+//   friction of Pouliquen and Forterre's empirical law for dense granular
+//   flows ("Friction law for dense granular flows", J. Fluid Mech. 2002),
+//   measured on real layers: a static layer starts to move only past its
+//   START angle and a moving one stops only below its STOP angle, about a
+//   degree apart; a thin layer stands steeper than a thick one (both
+//   angles rise as the depth falls towards a few grains); and a moving
+//   layer's friction rises with its Froude number, u/√(gh), which is what
+//   gives a flow a speed it settles at rather than one it gains without
+//   end. So a heap fed from above grows past its angle, lets go in a slump,
+//   and stops a little flatter — the cone under an hourglass's stream.
 //
 //   THE DILUTE LAYER is the grains in the air (`Bulb.air`): thrown up by
 //   a shake, or falling from one end of the bulb to the other when the
@@ -61,9 +62,21 @@ export const G = 9.81 / GLASS_METRES;
  *  millimetres on a desk glass. */
 const LAYER = 0.018;
 
-/** How much steeper sand stands before it lets go than it stops at: the
- *  static angle over the dynamic, in radians. */
-export const STATIC_EXTRA = (2.5 * Math.PI) / 180;
+const DEG = Math.PI / 180;
+
+/** Pouliquen and Forterre's fit for glass beads: δ1, the stop angle of a
+ *  thick layer; δ2, the stop angle of a vanishingly thin one; δ3, the
+ *  start angle of a thick one; L, the depth over which a thin layer's
+ *  extra steepness fades (0.65 mm, as a share of the glass's height); β,
+ *  the flow rule's constant; γ, the power the friction is carried down to
+ *  standstill by. Each sand's own angle of repose stands for δ1 (`look.ts`
+ *  measures it on a heap, a thick layer), and δ2 and δ3 keep the paper's
+ *  distances from it. */
+const DELTA2_OVER = (30.7 - 21) * DEG;
+const DELTA3_OVER = (22.2 - 21) * DEG;
+const DEPTH_L = 0.65e-3 / GLASS_METRES;
+export const BETA = 0.136;
+const GAMMA = 1e-3;
 
 /** The fastest the flowing layer moves, heights a second. */
 const VMAX = 2.5;
@@ -131,19 +144,57 @@ export function setGravity(
   }
 }
 
-/** The friction coefficients the heap flows by now: the dynamic one (its
- *  angle of repose, flattened by a shake) and the static one over it. */
-export function frictionOf(bulb: Bulb): { still: number; moving: number } {
-  const moving = holds(bulb);
-  return {
-    moving,
-    still: Math.tan(Math.atan(moving) + STATIC_EXTRA),
+/** The friction the heap flows by now, as the law's three tangents: the
+ *  stop angle of a thick layer (the sand's angle of repose, flattened by a
+ *  shake), of a thin one, and the start angle of a thick one. `still` and
+ *  `moving` are the start and stop friction of a layer as deep as the
+ *  flowing layer. */
+export type Friction = {
+  t1: number;
+  t2: number;
+  t3: number;
+  still: number;
+  moving: number;
+};
+
+export function frictionOf(bulb: Bulb): Friction {
+  const t1 = holds(bulb);
+  const a1 = Math.atan(t1);
+  const f = {
+    t1,
+    t2: Math.tan(a1 + DELTA2_OVER),
+    t3: Math.tan(a1 + DELTA3_OVER),
+    still: 0,
+    moving: 0,
   };
+  f.still = muStart(f, LAYER);
+  f.moving = muStop(f, LAYER);
+  return f;
+}
+
+/** The friction a layer `h` deep comes to rest at (Pouliquen and Forterre,
+ *  eq. 3.8). */
+export function muStop(f: Friction, h: number): number {
+  return f.t1 + (f.t2 - f.t1) / (h / DEPTH_L + 1);
+}
+
+/** The friction a layer `h` deep must be pushed past to start (eq. 3.9). */
+export function muStart(f: Friction, h: number): number {
+  return f.t3 + (f.t2 - f.t1) / (h / DEPTH_L + 1);
+}
+
+/** The friction of a layer `h` deep moving at Froude number `fr`
+ *  (eqs. 3.5, 3.6): past β, the stop friction of the depth the flow rule
+ *  says a steady flow at this speed would have; under it, carried down to
+ *  the start friction at standstill. */
+export function muFlow(f: Friction, h: number, fr: number): number {
+  if (fr > BETA) return muStop(f, (h * BETA) / fr);
+  return (fr / BETA) ** GAMMA * (muStop(f, h) - muStart(f, h)) + muStart(f, h);
 }
 
 /** One edge of the flowing layer over `dt`: the speed from gravity along
- *  the slope and friction against it, then the sand it carries. Returns
- *  the volume moved. */
+ *  the slope and the law's friction against it, then the sand it carries.
+ *  Returns the volume moved. */
 function edge(
   b: Bulb,
   vel: Float64Array,
@@ -156,19 +207,33 @@ function edge(
   face: number,
   dt: number,
   gt: number,
-  still: number,
-  moving: number,
+  f: Friction,
 ): number {
   const { height: h, lean, floor, ceiling, area, m } = b;
   const diff = h[p]! + lean[p]! - (h[q]! + lean[q]!);
   const s = diff / dist;
   const u = vel[e]!;
-  // Static: friction holds any slope up to the static angle.
-  if (u === 0 && Math.abs(s) <= still) return 0;
+  const dir = u !== 0 ? Math.sign(u) : Math.sign(s);
+  if (dir === 0) return 0;
+  const forward = dir > 0;
+  const from = forward ? p : q;
+  const ifrom = forward ? ip : iq;
+  const depth = h[from]! - floor[ifrom]!;
+  if (depth <= EPS) {
+    vel[e] = 0;
+    return 0;
+  }
+  // The flowing layer: the top of the heap, as deep as the sand is, up to
+  // the layer's own depth.
+  const hf = Math.max(1e-6, Math.min(depth, LAYER));
   const cos = 1 / Math.sqrt(1 + s * s);
   const sin = s * cos;
-  const dir = u !== 0 ? Math.sign(u) : Math.sign(s);
-  let un = u + gt * (sin - dir * moving * cos) * dt;
+  // Static: friction holds any slope up to the start angle of a layer this
+  // deep.
+  if (u === 0 && Math.abs(s) <= muStart(f, hf)) return 0;
+  const fr = Math.abs(u) / Math.sqrt(gt * hf * cos);
+  const mu = muFlow(f, hf, fr);
+  let un = u + gt * (sin - dir * mu * cos) * dt;
   // Friction brings a flow to rest; it never turns it round.
   if (Math.sign(un) !== dir) {
     vel[e] = 0;
@@ -176,25 +241,17 @@ function edge(
   }
   if (un > VMAX) un = VMAX;
   else if (un < -VMAX) un = -VMAX;
-  const forward = un > 0;
-  const from = forward ? p : q;
   const to = forward ? q : p;
-  const ifrom = forward ? ip : iq;
   const ito = forward ? iq : ip;
-  const depth = h[from]! - floor[ifrom]!;
-  if (depth <= EPS) {
-    vel[e] = 0;
-    return 0;
-  }
   const af = area[ifrom]! / m;
   const at = area[ito]! / m;
-  let dv = Math.abs(un) * Math.min(depth, LAYER) * face * dt;
-  // Downhill a flow stops where the slope has come down to the dynamic
-  // angle: never past it, which is what keeps a heap from sloshing into a
-  // hollow.
+  let dv = Math.abs(un) * hf * face * dt;
+  // Downhill a flow stops where the slope has come down to the stop angle
+  // of the layer: never past it, which is what keeps a heap from sloshing
+  // into a hollow.
   const drop = forward ? diff : -diff;
   if (drop > 0) {
-    const over = drop - moving * dist;
+    const over = drop - muStop(f, hf) * dist;
     if (over <= 0) {
       vel[e] = 0;
       return 0;
@@ -224,28 +281,14 @@ export function flow(bulb: Bulb, dt: number): number {
   // or thrown up is the grains' business.
   if (g[1] > -0.05) return 0;
   const gt = Math.hypot(g[0], g[1], g[2]) * G;
-  const { still, moving } = frictionOf(bulb);
+  const f = frictionOf(bulb);
   const dr = centre[0]! * 2;
   let moved = 0;
   for (let i = 0; i < n - 1; i++) {
     const face = (2 * Math.PI * (i + 1) * dr) / m;
     for (let a = 0; a < m; a++) {
       const p = i * m + a;
-      moved += edge(
-        bulb,
-        vr,
-        p,
-        p,
-        p + m,
-        i,
-        i + 1,
-        dr,
-        face,
-        dt,
-        gt,
-        still,
-        moving,
-      );
+      moved += edge(bulb, vr, p, p, p + m, i, i + 1, dr, face, dt, gt, f);
     }
   }
   for (let i = 1; i < n; i++) {
@@ -253,7 +296,7 @@ export function flow(bulb: Bulb, dt: number): number {
     for (let a = 0; a < m; a++) {
       const p = i * m + a;
       const q = i * m + ((a + 1) % m);
-      moved += edge(bulb, va, p, p, q, i, i, arc, dr, dt, gt, still, moving);
+      moved += edge(bulb, va, p, p, q, i, i, arc, dr, dt, gt, f);
     }
   }
   let level = 0;
@@ -558,4 +601,185 @@ export function buzzFor(hits: number): number {
   const FLOOR = 0.01;
   if (hits < FLOOR) return 0;
   return Math.round(Math.min(40, 8 + 5 * Math.log2(hits / FLOOR)));
+}
+
+/** The stream from the bore to the heap: the points it passes through in
+ *  the sink's frame and the moment a grain reaches each (seconds after it
+ *  left the bore), where it lands, and the first point that is on the glass
+ *  rather than in the air (`count` when it never reaches it). */
+export type StreamPath = {
+  /** x, y, z a point, `count` of them. */
+  points: number[];
+  times: number[];
+  count: number;
+  landX: number;
+  landZ: number;
+  wall: number;
+};
+
+/** Dry sand on glass: the friction a grain sliding on the glass meets, as
+ *  a coefficient. Measured for glass beads on dry clear glass, about 0.16
+ *  ("Experimental determinations of contact friction for spherical glass
+ *  particles", Powder Technology 2021); a little higher for sand's angular
+ *  grains. On a smooth wall a constant (Coulomb) friction describes a thin
+ *  granular flow well (Pouliquen and Forterre 2002). */
+export const WALL_FRICTION = 0.2;
+
+/** The step the stream is traced by, seconds. */
+const STREAM_DT = 1 / 1500;
+
+/**
+ * Where the stream goes, traced as the grains move:
+ *
+ * - OUT OF THE BORE: grains fall freely from the "free-fall arch" that
+ *   stands about a hole's width over the orifice, so they leave it at
+ *   about √(g·D), down the glass's axis, the way the bore points.
+ * - THROUGH THE AIR: a projectile under the gravity the glass feels, which
+ *   bends the stream from the axis toward the way gravity pulls when the
+ *   glass leans.
+ * - ONTO THE GLASS: a dense granular jet that meets a surface turns along
+ *   it, its speed into the surface spent (granular-jet impact experiments
+ *   and Johnson and Gray's jets on an incline, J. Fluid Mech. 2011), and
+ *   runs on down the inside of the wall as a rivulet: gravity along the
+ *   wall drives it and Coulomb friction (`WALL_FRICTION`) against the push
+ *   into the wall holds it back — so it slides, speeding up, where the
+ *   wall is steep, and stops where the wall is flatter than the friction
+ *   angle, piling there.
+ * - ONTO THE HEAP, where it lands and `pour` puts the sand.
+ *
+ * `wallFriction` is for the tests.
+ */
+export function streamPath(
+  bulb: Bulb,
+  wallFriction = WALL_FRICTION,
+): StreamPath {
+  const H = bulb.shape.height;
+  const { m, height } = bulb;
+  let [gx, gy, gz] = bulb.g;
+  // The stream only ever falls: with no pull toward the plate it is the
+  // grains' business, and it is traced as barely falling.
+  if (gy > -0.05) gy = -0.05;
+  const gAll = Math.hypot(gx, gy, gz) * G;
+  const gl = Math.hypot(gx, gy, gz);
+  const ax0 = (gx / gl) * gAll;
+  const ay0 = (gy / gl) * gAll;
+  const az0 = (gz / gl) * gAll;
+  // Out of the bore at the free-fall arch's speed, down the axis.
+  let vx = 0;
+  let vy = -Math.sqrt(gAll * 2 * bulb.shape.bore);
+  let vz = 0;
+  let x = 0;
+  let y = H;
+  let z = 0;
+  let t = 0;
+  const points = [x, y, z];
+  const times = [0];
+  let wall = -1;
+  let onWall = false;
+  const normal = (px: number, py: number, pz: number): number[] => {
+    const r = Math.hypot(px, pz) || 1e-9;
+    const e = 1e-3;
+    const slope = (wallAt(bulb, py + e) - wallAt(bulb, py - e)) / (2 * e);
+    const kn = 1 / Math.sqrt(1 + slope * slope);
+    return [(px / r) * kn, -slope * kn, (pz / r) * kn];
+  };
+  for (let k = 0; k < 6000; k++) {
+    let ax = ax0;
+    let ay = ay0;
+    let az = az0;
+    if (onWall) {
+      const [nx, ny, nz] = normal(x, y, z);
+      // The push into the glass is what friction is made of; with none,
+      // the wall overhangs and the stream leaves it.
+      const push = ax * nx! + ay * ny! + az * nz!;
+      if (push <= 0) {
+        onWall = false;
+      } else {
+        // Along the wall: gravity less its push, and the speed kept to the
+        // wall's surface.
+        ax -= push * nx!;
+        ay -= push * ny!;
+        az -= push * nz!;
+        const vn = vx * nx! + vy * ny! + vz * nz!;
+        vx -= vn * nx!;
+        vy -= vn * ny!;
+        vz -= vn * nz!;
+        const speed = Math.hypot(vx, vy, vz);
+        const drive = Math.hypot(ax, ay, az);
+        const hold = wallFriction * push;
+        if (speed < 1e-4) {
+          // At rest on the glass: it stays unless gravity along the wall
+          // beats the friction — the sand piles where the wall is flat.
+          if (drive <= hold) break;
+          ax -= (hold * ax) / drive;
+          ay -= (hold * ay) / drive;
+          az -= (hold * az) / drive;
+        } else {
+          ax -= (hold * vx) / speed;
+          ay -= (hold * vy) / speed;
+          az -= (hold * vz) / speed;
+          // Friction stops a slide; it never turns it round.
+          const nvx = vx + ax * STREAM_DT;
+          const nvy = vy + ay * STREAM_DT;
+          const nvz = vz + az * STREAM_DT;
+          if (nvx * vx + nvy * vy + nvz * vz < 0) {
+            vx = 0;
+            vy = 0;
+            vz = 0;
+            continue;
+          }
+        }
+      }
+    }
+    vx += ax * STREAM_DT;
+    vy += ay * STREAM_DT;
+    vz += az * STREAM_DT;
+    let nx = x + vx * STREAM_DT;
+    let ny = y + vy * STREAM_DT;
+    let nz = z + vz * STREAM_DT;
+    t += STREAM_DT;
+    // The glass: the jet meets it and turns along it.
+    const R = wallAt(bulb, ny) * 0.97;
+    const r = Math.hypot(nx, nz);
+    if (r > R && r > 1e-9) {
+      nx *= R / r;
+      nz *= R / r;
+      const [ux, uy, uz] = normal(nx, ny, nz);
+      const vn = vx * ux! + vy * uy! + vz * uz!;
+      if (vn > 0) {
+        vx -= vn * ux!;
+        vy -= vn * uy!;
+        vz -= vn * uz!;
+      }
+      if (!onWall && wall < 0) wall = points.length / 3;
+      onWall = true;
+    }
+    // The heap, or the plate under it.
+    const [i, a] = cellAt(bulb, nx, nz);
+    const surface = height[i * m + a]!;
+    const landed = ny <= surface || ny <= 0;
+    if (landed) ny = Math.max(surface, 0);
+    x = nx;
+    y = ny;
+    z = nz;
+    // A point every few steps is plenty to draw the stream by.
+    if (landed || k % 6 === 5) {
+      points.push(x, y, z);
+      times.push(t);
+    }
+    if (landed) break;
+  }
+  if (times[times.length - 1] !== t) {
+    points.push(x, y, z);
+    times.push(t);
+  }
+  const count = points.length / 3;
+  return {
+    points,
+    times,
+    count,
+    landX: x,
+    landZ: z,
+    wall: wall < 0 ? count : wall,
+  };
 }
