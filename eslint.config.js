@@ -23,6 +23,11 @@ export default [
       "native/ios/**",
       "native/android/**",
       "native/.expo/**",
+      // The screenshot skill's own dependencies, build and pictures (all
+      // gitignored — see .agents/skills/screenshot/SKILL.md).
+      ".agents/skills/*/node_modules/**",
+      ".agents/skills/screenshot/.build/**",
+      ".agents/skills/screenshot/out/**",
     ],
   },
   js.configs.recommended,
@@ -33,7 +38,7 @@ export default [
     files: [
       "scripts/**/*.mjs",
       "tauri/scripts/**/*.mjs",
-      ".agent/skills/**/*.mjs",
+      ".agents/skills/**/*.mjs",
     ],
     languageOptions: {
       sourceType: "module",

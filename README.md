@@ -21,10 +21,19 @@ the volume that has run through is exactly the volume the clock says has, and
 every heap relaxes toward its own angle of repose — glass beads flatter, black
 sand steeper — so the upper surface is a funnel and the lower a cone, and a
 glass that has been in a background tab for ten minutes is ten minutes further
-on when it comes back. Tilt the phone and the heaps lean with it; shake it
-and the grains jump. The frame and the glass are modelled in Blender off the
-same measurements, with photographed walnut, oak, pine, brass, copper and
-steel, and lit by the one light the sand is lit by.
+on when it comes back. The sand moves as sand does, too: a heap fed past its
+angle slumps, grains thrown up fly, hit the glass and land, and a turned-over
+glass drops its sand to the other end. Tilt the phone — to a side, back or
+forward — and the heaps slide with it; shake it and the grains jump, and on
+a phone that can buzz you feel them hit the glass.
+
+The glass is drawn in 3D with [three.js](https://threejs.org/) — real glass,
+turned wood and metal — under the sky outside: the sun or the moon where
+they stand at this moment, as bright as the hour, the season and the place
+make it, the place read from the device's time zone rather than asked for.
+The phone is a window onto that sky: tilt it and the horizon stays level
+with the real one while the glass stays in front of you, hanging a little
+behind a quick swing the way a heavy thing held in a hand does.
 
 Ten hourglasses come built in — walnut and black steel, a ship's glass in
 turned brass, black lacquer with a tall smoked glass, copper and red sand,
@@ -42,7 +51,8 @@ the shared React/Preact surface behind the sibling
 [time](https://github.com/niclaslindstedt/time),
 [contacts](https://github.com/niclaslindstedt/contacts) and
 [period](https://github.com/niclaslindstedt/period) apps — same settings
-layout, same theme engine, same PWA update lifecycle.
+layout, same theme engine, same PWA update lifecycle — with Preact as the
+renderer and three.js for the glass.
 
 ## Why
 
@@ -50,7 +60,8 @@ layout, same theme engine, same PWA update lifecycle.
   its settings and where the sand stood, in the browser's localStorage, and
   sends nothing anywhere — no analytics, no telemetry, no requests at
   runtime. The sensor reading that turns the glass is used for the next frame
-  and thrown away.
+  and thrown away, and the sky is placed by the device's time zone, never by
+  asking where it is.
 - **One gesture.** Tap to turn. There is no start button, no reset and no
   countdown: the glass says how far along it is by how much sand is left.
 - **Honest sand.** The run is read off the wall clock and the sand off the
@@ -94,15 +105,18 @@ To try the production build the way it deploys:
 npm run build && npm run preview
 ```
 
-To photograph the glass in a few states, for iterating on its look:
+To photograph the glass — on contact sheets of devices, themes, presets,
+skies and states — for iterating on its look (the `screenshot` skill;
+`make shots-warm` first fetches a browser and builds, once):
 
 ```sh
-make shots ARGS="--preset all --theme dark,light"
+make shots ARGS="--variant presets --theme both --screen glass"
 ```
 
-The frames and the glasses are modelled in Blender off the app's own data
-into `public/models/`; regenerate them after a change to a look (needs
-Blender as the `bpy` Python module or on the PATH):
+The flat picture — the preset cards in Settings, and the fallback where
+WebGL cannot start — composites frames and glasses modelled in Blender off
+the app's own data into `public/models/`; regenerate them after a change to
+a look (needs Blender as the `bpy` Python module or on the PATH):
 
 ```sh
 make blender
@@ -124,18 +138,21 @@ See [`native/README.md`](native/README.md) for running it on a device, and
 
 One screen, and the glass is all of it:
 
-| Gesture                   | What it does                                                                                                                                                                                                                                                                                         |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tap** the glass         | Turns it over. The frame rotates half a turn, the heaps drop onto their new floors, and the sand runs from the bulb now on top. Tapping a running glass turns it over too — what had run through is what is now left to run.                                                                         |
-| **Drag** up or down on it | A longer or a shorter glass: one length per step along the list — 1 to 10 minutes by the minute, then 15, 20, 25, 30, 45, 60, 90 and 120 — and the glass grows or shrinks to match. The wheel and the arrow keys do the same on a desk. A new length is a new glass, standing with its sand run out. |
-| **Turn the phone** over   | The sand runs the other way and the picture stays where it is; a change of length or a tap works exactly as before. Under **Settings → The timer → Turn with the phone**; an iPhone asks for the motion sensor the first time the glass is pressed.                                                  |
-| When the sand has run out | A soft light comes up behind the glass, and the device buzzes if it can and the setting is on.                                                                                                                                                                                                       |
+| Gesture                   | What it does                                                                                                                                                                                                                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tap** the glass         | Turns it over. The frame rotates half a turn, the sand drops to its new floor and lands, and it runs from the bulb now on top. Tapping a running glass turns it over too — what had run through is what is now left to run.                                                                                      |
+| **Drag** up or down on it | A longer or a shorter glass: one length per step along the list — 1 to 10 minutes by the minute, then 15, 20, 25, 30, 45, 60, 90 and 120 — and the glass grows or shrinks to match. The wheel and the up and down arrow keys do the same on a desk. A new length is a new glass, standing with its sand run out. |
+| **Drag sideways** on it   | Turns the glass about its own axis, to see the sand from another side; let go and it spins on and comes back to face you. The left and right arrow keys nudge it. On a desk a quick flick is the shake.                                                                                                          |
+| **Turn the phone** over   | The sand falls to the other end and runs the other way, and the picture stays where it is; the cog moves to the corner that is now the top right. Under **Settings → The timer → Turn with the phone**; an iPhone asks for the motion sensors the first time the glass is tapped.                                |
+| **Tilt the phone**        | The sand leans with it — to a side, or back or forward to the back or front of the bulb — and the sky behind stays level with the world. Past sixty degrees on its side the run halts until it is stood up; laid flat on a table it keeps running.                                                               |
+| **Shake the phone**       | The grains are thrown up, hit the glass and land, and the heaps slump flatter while it lasts. On a phone that can buzz, **Feel the sand** lets you feel them hit. The time is untouched.                                                                                                                         |
+| When the sand has run out | A soft light comes up behind the glass, and the device buzzes if it can and the setting is on.                                                                                                                                                                                                                   |
 
 …and one button, the cog in the corner:
 
-| Button | What it does                                                                                                                                                                                                                                                          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **⚙**  | Settings: theme; the hourglass — ten presets or Custom, which combines eight frames, six glasses and eight sands; the timer's length, a buzz when it runs out, keeping the screen on while the sand runs, and turning with the phone; developer tools; and the build. |
+| Button | What it does                                                                                                                                                                                                                                                                                                                                               |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **⚙**  | Settings: theme; the hourglass — ten presets or Custom, which combines eight frames, six glasses and eight sands; the timer's length, a buzz when it runs out, keeping the screen on while the sand runs, turning with the phone, and feeling the sand hit the glass; the sky — now (the sky outside), day, dusk or night; developer tools; and the build. |
 
 ## Configuration
 
@@ -195,13 +212,13 @@ in — nothing here reads the clock. See [`docs/design.md`](docs/design.md).
 
 ## Troubleshooting
 
-| Symptom                                     | Fix                                                                                                                                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `npm install` fails with `401 Unauthorized` | The framework comes from GitHub Packages — see Prerequisites.                                                                              |
-| Turning the phone does nothing              | **Settings → The timer → Turn with the phone** is off, or an iPhone has not been asked: press the glass once and allow the motion sensors. |
-| The sand stopped when I tilted the phone    | Past sixty degrees the hole is not fed, as in a real glass; stand the phone up and the run goes on from where it was.                      |
-| The screen went to sleep mid-run            | **Keep the screen on** is off, or the browser refused the wake lock; the sand is still right when the screen comes back.                   |
-| The glass came back further on than it left | That is the wall clock: the run is read off it, not counted in frames, so a glass in a background tab keeps running.                       |
+| Symptom                                     | Fix                                                                                                                                      |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm install` fails with `401 Unauthorized` | The framework comes from GitHub Packages — see Prerequisites.                                                                            |
+| Turning the phone does nothing              | **Settings → The timer → Turn with the phone** is off, or an iPhone has not been asked: tap the glass once and allow the motion sensors. |
+| The sand stopped when I tilted the phone    | Past sixty degrees on its side the hole is not fed, as in a real glass; stand the phone up and the run goes on from where it was.        |
+| The screen went to sleep mid-run            | **Keep the screen on** is off, or the browser refused the wake lock; the sand is still right when the screen comes back.                 |
+| The glass came back further on than it left | That is the wall clock: the run is read off it, not counted in frames, so a glass in a background tab keeps running.                     |
 
 More in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
@@ -210,7 +227,7 @@ More in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 - [Getting started](docs/getting-started.md)
 - [Configuration](docs/configuration.md)
 - [Architecture](docs/architecture.md)
-- [The design](docs/design.md) — the measurements the glass was drawn from, the sand model and the picture
+- [The design](docs/design.md) — the measurements the glass was drawn from, the sand and its physics, the sky and the picture
 - [The hourglass](docs/features/hourglass.md) — the screen and its gestures
 - [The looks](docs/features/looks.md) — the presets and Custom
 - [The app on a phone](docs/features/native-app.md) — the native wrapper

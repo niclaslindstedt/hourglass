@@ -26,6 +26,8 @@ make demo         # the dev server on the demo run (VITE_SEED=demo)
 make test
 make lint
 make fmt-check
+make shots-warm   # a browser for the screenshots, and the build, ahead of time
+make shots        # contact sheets of the glass (ARGS="…" for the screenshot skill's options)
 ```
 
 The native wrapper in `native/` is a separate npm project with its own
@@ -50,12 +52,16 @@ module, or on the PATH; the CC0 textures are fetched once into `.cache/`).
 The painter draws its own plainer parts wherever a sprite is missing, so a
 checkout builds and runs without Blender. See the `blender-assets` skill.
 
-A change to how the glass draws is judged by eye. `make shots` builds and
-photographs the hourglass in a few states into `shots/`, with a contact sheet
-of them all in `shots/sheet.png` (see `scripts/glass-shots.mjs` for the
-options, among them `--preset all`, `--theme light`, `--settings` and
-`--upside`); it needs Playwright, which is not a dependency of the app — the
-script says how to install it outside the lockfile.
+A change to how the glass draws is judged by eye. `make shots` photographs
+the real app in headless Chromium and lays the frames out on contact sheets
+in `.agents/skills/screenshot/out/latest/` — devices × themes × variants ×
+screens (see the `screenshot` skill for the options, among them
+`--variant presets`, `--theme both`, `--screen settings` and
+`--screen upside`, and `--settings '<json>'` for any settings patch). It
+builds only when the sources moved. `make shots-warm` does a first run's slow
+parts ahead of time: it finds or installs a `playwright-core` and its
+Chromium (neither is a dependency of the app) and makes the build. WebGL
+runs on the CPU there (SwiftShader), about twenty seconds a frame.
 
 ## Development workflow
 
@@ -92,15 +98,16 @@ script says how to install it outside the lockfile.
 ## Tests
 
 Tests live in `tests/` with a `_test` suffix and cover the pure modules — the
-glass's geometry, the sand, the timer, the look vocabulary, the settings
-parser, the sensor's sign, the demo — and the strings the wrappers and the app
+glass's geometry, the sand and its physics, the heap's mesh, the timer, the
+sky and the sun and the moon, how the glass hangs, the look vocabulary, the
+settings parser, the sensor's readings, the demo — and the strings the wrappers and the app
 have to agree on. Run one file with `npx vitest run tests/sand_test.ts`. UI
 changes should keep the boot smoke path working: `npm run build && npm run
 preview`, tap the glass, and check that the sand runs and the frame turns.
 
-The model is deliberately clock-free — `now` is a parameter, never
-`Date.now()` inside `timer.ts` or `sand.ts` — so a test never needs fake
-timers. Keep it that way.
+The model is deliberately clock-free — `now` and `dt` are parameters, never
+`Date.now()` inside `timer.ts`, `sand.ts`, `physics.ts`, `view.ts`, `sky.ts`
+or `astronomy.ts` — so a test never needs fake timers. Keep it that way.
 
 ## Documentation
 

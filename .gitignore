@@ -18,7 +18,8 @@ coverage/
 node_modules/
 dist/
 
-# Pictures of the glass (scripts/glass-shots.mjs)
+# Pictures of the glass from before the screenshot skill (its own out/ is
+# ignored in .agents/skills/screenshot/.gitignore)
 shots/
 
 # The native wrapper keeps its own (native/.gitignore covers the rest); this

@@ -127,18 +127,20 @@ export async function loadLookSprites(
 }
 
 /** The sprites for a look, as they load: null until they have, and null
- *  for good where there are none. */
-export function useSprites(look: Look): LookSprites | null {
+ *  for good where there are none — or while `enabled` is off, for a
+ *  picture drawn by the stage rather than the painter. */
+export function useSprites(look: Look, enabled = true): LookSprites | null {
   const [sprites, setSprites] = useState<LookSprites | null>(null);
   useEffect(() => {
     let live = true;
     setSprites(null);
+    if (!enabled) return;
     void loadLookSprites(look.top, look.glass).then((s) => {
       if (live) setSprites(s);
     });
     return () => {
       live = false;
     };
-  }, [look.top, look.glass]);
+  }, [look.top, look.glass, enabled]);
   return sprites;
 }

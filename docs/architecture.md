@@ -6,8 +6,8 @@ below runs in the browser tab.
 ```
 index.html
   └── src/main.tsx            mounts <App> inside the i18n LanguageRoot
-       └── src/App.tsx        theme, settings, the run, the sensor, the wake lock, the cog
-            ├── Hourglass         the glass — the whole screen, every gesture on it, and the phone's readings
+       └── src/App.tsx        theme, settings, the run, the sensor, the wake lock, the place, the cog
+            ├── Hourglass         the glass and its sky — the whole screen, every gesture on it, and the phone's readings
             ├── TopBar            the bar the phone's Settings screen sits under (never over the glass)
             ├── SettingsScreen    settings, developer tools, about — a screen on the phone
             └── SidePanel         the same on the desk, over the right-hand edge
@@ -15,17 +15,28 @@ index.html
 src/app/
   look.ts           the vocabulary: tops, glasses, sands, the ten presets; the two themes
   glass.ts          a glass's profile as a curve, and a bulb's shape read both ways        (pure)
-  sand.ts           a bulb's sand as cells: fill, drain, pour, relax, settle; a lean, a shake (pure, clock-free)
+  sand.ts           a bulb's sand as cells: fill, drain, pour, relax, settle; a lean       (pure, clock-free)
+  physics.ts        the sand in motion: the flowing layer, the grains in the air, a toss,
+                    a turn-over, the hits on the glass and the buzz they make               (pure, clock-free)
   timer.ts          how long a glass runs, how big it is, and where a run stands           (pure, clock-free)
-  scene.ts          the camera, the light, and a heap's surface as lit facets              (pure)
-  frame.ts          what one painted frame is made of
-  sprites.ts        the modelled parts (public/models/, made by `make blender`), loaded once each
-  paint.ts          the picture, back to front: the table, the plates, the posts, the order
-  paintGlass.ts     the glass: its outline, its back wall, its front wall and the light on it
-  paintSand.ts      the sand: the facets, the grain, the clinging grains, the stream
-  Hourglass.tsx     the glass on the screen: the loop, the turn, the drag, the phone's turn, lean and shake
-  HourglassPicker.tsx  the preset cards and the Custom chips in Settings
-  useMotion.ts      the phone's readings: which way is down, how it leans, how hard it is shaken
+  view.ts           how the glass hangs in the phone: the lag, the finger's orbit          (pure, clock-free)
+  astronomy.ts      where the sun and the moon stand, the moon's phase, their light; a time zone's place (pure)
+  zones.ts          every IANA time zone's city, lat/lon — generated from the tz database's zone.tab
+  sky.ts            the sky's colours and lights for the sun and the moon; now / day / dusk / night (pure)
+  sandMesh.ts       a heap's surface as a mesh, and where it meets the glass              (pure)
+  render/stage.ts   the 3D picture (three.js): the renderer, the phone-turned camera, the lights, the sand
+  render/skyDome.ts the sky dome's shader: gradient, cloud, stars, the sun's and the moon's discs
+  render/parts.ts   the frame and the glass as lathes and boxes off look.ts, and their materials
+  render/textures.ts wood grain and sand speckle, drawn from a hash — nothing fetched
+  scene.ts          the flat painter's camera, its light, and a heap's surface as lit facets (pure)
+  frame.ts          what one flat-painted frame is made of
+  sprites.ts        the modelled parts (public/models/, made by `make blender`), for the flat painter
+  paint.ts          the flat picture, back to front: the table, the plates, the posts, the order
+  paintGlass.ts     the flat glass: its outline, its back wall, its front wall and the light on it
+  paintSand.ts      the flat sand: the facets, the grain, the clinging grains, the stream
+  Hourglass.tsx     the glass on the screen: the loop, the turn, the drags, the phone, the sky, the buzz
+  HourglassPicker.tsx  the preset cards (flat-painted) and the Custom chips in Settings
+  useMotion.ts      the phone's readings: gravity in its frame, the lean, the jerk, the spin, the angles
   useRun.ts         the run, persisted per device
   useAppSettings.ts the settings blob, clamped on read
   shape.ts          phone or desk — the one edge the shell is cut at
@@ -39,7 +50,8 @@ native/             the thin Expo wrapper — a separate npm project (see below)
   src/local-server.ts   unpacks the packed build and serves it on a fixed loopback port
   src/injected.ts   the theme reporter, and the service-worker teardown
 
-public/models/      the frames and the glasses modelled in Blender off look.ts (scripts/blender/), with their manifest
+public/models/      the frames and the glasses modelled in Blender off look.ts (scripts/blender/), with their
+                    manifest — for the flat painter — and the photographed grain the 3D sand is bumped with
 
 tauri/              the thin desktop shell — a Rust project (see below)
   shell/            every decision: the origin, the window, what a request resolves to
@@ -56,7 +68,9 @@ PWA update state machine. The app imports only published subpaths.
 
 The renderer is **Preact** through `preact/compat`: the framework is built
 against React, and `@preact/preset-vite` plus `tsconfig.json`'s `paths` alias
-`react` onto Preact for the bundle and the type-checker alike.
+`react` onto Preact for the bundle and the type-checker alike. The glass
+itself is drawn by **three.js** (`src/app/render/`), the one 3D dependency;
+Preact never touches its canvas.
 
 ## The model
 
@@ -72,6 +86,8 @@ type AppSettings = {
   vibrate: boolean;
   awake: boolean;
   sensor: boolean;
+  haptics: boolean; // "Feel the sand": buzz when the sand hits the glass
+  sky: "now" | "day" | "dusk" | "night";
   devMode: boolean;
   captureLogs: boolean;
 };
@@ -84,23 +100,31 @@ type Run = {
 ```
 
 Everything else is derived, every frame: `passed(run, now)` says how much of
-the sand is through, and the two heaps in `sand.ts` say where it lies. Nothing
-about a heap is stored — a glass that is reopened rebuilds both heaps for the
+the sand is through, the two heaps in `sand.ts` (moved by `physics.ts`) say
+where it lies, and `sky.ts` says what sky it stands under for `now` and the
+place the device's time zone names. Nothing about a heap is stored — a glass that is reopened rebuilds both heaps for the
 run as the clock has it and settles them (`Hourglass.tsx`'s `build`). See
 [`design.md`](design.md) for the sand and the picture.
 
 ## The render loop
 
-`Hourglass.tsx` owns one `requestAnimationFrame` loop. Each frame it reads the
-clock, drains from the upper bulb exactly the volume the clock says has gone
-since the last frame, pours it into the lower, relaxes both heaps a few
-sweeps toward their angle of repose, and paints. A large jump — the tab coming
-back, a turn — settles the heaps in one go rather than animating what nobody
-saw. The loop sleeps when nothing moves: a glass standing still is painted
-once.
+`Hourglass.tsx` owns one `requestAnimationFrame` loop. Each frame it reads
+the clock and the phone; steps how the glass hangs (`view.ts`); hands both
+heaps the gravity the glass feels (the Earth's, less the phone's own
+acceleration, turned into the glass's frame); drains from the upper bulb
+exactly the volume the clock says has gone since the last frame and pours it
+where the stream lands; steps the sand's physics — the flowing layer and the
+grains in the air — and turns the hits on the glass into a buzz; works out
+the sky every few seconds; and draws. A large jump — the tab coming back —
+settles the heaps in one go rather than animating what nobody saw. The loop
+sleeps when nothing moves: a glass standing still, its sand at rest, is
+drawn once.
 
-React never writes a pixel: the canvas is painted from the loop, and the
-component re-renders only when the look, the run or gravity changes.
+It draws on the three.js `Stage` (`render/stage.ts`) where the device has
+WebGL, and with the flat painter (`paint.ts`) where it has not or the
+context is lost. React never writes a pixel: the canvas is drawn from the
+loop, and the component re-renders only when the look, the run or which way
+up the phone is changes.
 
 ## The service worker
 
@@ -122,8 +146,8 @@ that holds `sw.js`.
 `node_modules`, reached with `--prefix native` — and it is thin on purpose: a
 loopback HTTP server serving the packed web build, a `WebView` over it, and a
 theme reporter so the status bar follows the page. Nothing in `src/` knows it
-exists. The phone's sensor reaches the page through the ordinary
-`deviceorientation` event, not through the wrapper. See
+exists. The phone's sensors reach the page through the ordinary
+`deviceorientation` and `devicemotion` events, not through the wrapper. See
 [`features/native-app.md`](features/native-app.md) and
 [`../native/README.md`](../native/README.md).
 

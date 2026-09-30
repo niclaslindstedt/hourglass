@@ -18,6 +18,8 @@ describe("stored settings", () => {
       vibrate: false,
       awake: false,
       sensor: false,
+      haptics: false,
+      sky: "night",
       devMode: true,
       captureLogs: true,
     };
@@ -32,6 +34,7 @@ describe("stored settings", () => {
         custom: { top: "marble", glass: "cone" },
         minutes: 17,
         vibrate: "yes",
+        sky: "aurora",
       }),
     );
     expect(parsed.theme).toBe("system");
@@ -41,6 +44,8 @@ describe("stored settings", () => {
     expect(parsed.vibrate).toBe(true);
     expect(parsed.awake).toBe(true);
     expect(parsed.sensor).toBe(true);
+    expect(parsed.haptics).toBe(true);
+    expect(parsed.sky).toBe("now");
   });
 
   it("are the defaults for anything that is not an object", () => {

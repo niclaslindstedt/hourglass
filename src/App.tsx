@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   CogIcon,
@@ -10,6 +10,7 @@ import {
 import { UpdateToast, usePwaUpdate } from "@niclaslindstedt/oss-framework/pwa";
 import { useApplyTheme } from "@niclaslindstedt/oss-framework/theme";
 
+import { placeOfZone } from "./app/astronomy.ts";
 import { DEMO, demoRun, demoSettings } from "./app/dev/demo.ts";
 import { Hourglass } from "./app/Hourglass.tsx";
 import { useT } from "./app/i18n/index.ts";
@@ -90,17 +91,58 @@ export function App() {
     [settings.preset, settings.custom],
   );
 
-  // Which way up the phone is. On iOS the sensor has to be asked for from
-  // a tap, so the first press on the glass asks; until it is granted the
-  // glass is turned by tapping alone.
-  const [granted, setGranted] = useState(() => !motionNeedsPermission());
-  const motion = useMotion(settings.sensor && granted);
-  const askMotion = useCallback(() => {
-    if (!settings.sensor || granted) return;
-    void requestMotion().then((ok) => {
-      if (ok) setGranted(true);
+  // Which way up the phone is, how it leans and how it is shaken. The
+  // listeners are on whenever the setting is: a phone that granted the
+  // sensors before reports at once. On iOS they have to be asked for from
+  // the end of a tap, so a tap on the glass (or turning the setting on)
+  // asks, until a reading has come; until then the glass is turned by
+  // tapping alone.
+  const motion = useMotion(settings.sensor);
+  const asking = useRef(false);
+  const askMotion = () => {
+    if (!settings.sensor || !motionNeedsPermission()) return;
+    if (motion.current.heard || asking.current) return;
+    asking.current = true;
+    void requestMotion().finally(() => {
+      asking.current = false;
     });
-  }, [settings.sensor, granted]);
+  };
+
+  // The phone turned over: the cog fades out of the corner that is now the
+  // bottom and back in at the one that is now the top, so it is always
+  // where a thumb looks for it — and nothing else on the screen turns.
+  const [upside, setUpside] = useState(false);
+  const [cogShown, setCogShown] = useState(true);
+  const [cogUpside, setCogUpside] = useState(false);
+  useEffect(
+    () =>
+      motion.subscribe(() => {
+        const next = motion.current.gravity === -1;
+        setUpside((was) => (was === next ? was : next));
+      }),
+    [motion],
+  );
+  useEffect(() => {
+    if (upside === cogUpside) return;
+    setCogShown(false);
+    const id = window.setTimeout(() => {
+      setCogUpside(upside);
+      setCogShown(true);
+    }, 260);
+    return () => window.clearTimeout(id);
+  }, [upside, cogUpside]);
+
+  // Where the device is, for the sun and the moon: the place its time zone
+  // is named for (`zones.ts`) — no permission asked, nothing sent.
+  const place = useMemo(() => {
+    let zone: string | undefined;
+    try {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      zone = undefined;
+    }
+    return placeOfZone(zone, -new Date().getTimezoneOffset());
+  }, []);
 
   const desk = useDesk();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -181,7 +223,13 @@ export function App() {
     if (pwa.needRefresh) status(`Update ready: ${pwa.incomingVersion ?? "?"}`);
   }, [pwa.needRefresh, pwa.incomingVersion]);
 
-  const settingsScreen = <SettingsScreen settings={settings} update={update} />;
+  const settingsScreen = (
+    <SettingsScreen
+      settings={settings}
+      update={update}
+      onAskMotion={askMotion}
+    />
+  );
   const phoneSettings = !desk && settingsOpen;
 
   return (
@@ -201,6 +249,9 @@ export function App() {
               look={look}
               run={run}
               motion={motion}
+              sky={settings.sky}
+              place={place}
+              haptics={settings.haptics}
               onPress={askMotion}
               onTurn={turnNow}
               onRun={setRun}
@@ -217,7 +268,9 @@ export function App() {
               aria-label={t("nav.settings")}
               aria-expanded={desk ? settingsOpen : undefined}
               title={t("nav.settings")}
-              className={`app-cog absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-fg ${
+              className={`app-cog absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-[opacity,background-color,color] duration-200 hover:bg-white/10 hover:text-white ${
+                cogUpside ? "app-cog-upside rotate-180" : ""
+              } ${cogShown ? "opacity-100" : "pointer-events-none opacity-0"} ${
                 desk && settingsOpen ? "bg-accent/15 text-accent" : ""
               }`}
             >

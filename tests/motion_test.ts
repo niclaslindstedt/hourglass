@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_LEAN,
   STOP_LEAN,
+  deviceDown,
+  deviceToEarth,
   gravitySign,
   leanOf,
   leanStops,
@@ -26,6 +28,7 @@ describe("gravity from the phone", () => {
     expect(screenGravity(90, 0)).toEqual({
       down: expect.closeTo(1, 6) as number,
       across: expect.closeTo(0, 6) as number,
+      toward: expect.closeTo(0, 6) as number,
     });
     // Flat on a table: nothing in the screen's plane at all.
     const flat = screenGravity(0, 0)!;
@@ -50,26 +53,75 @@ describe("gravity from the phone", () => {
   });
 });
 
+describe("gravity in the phone's frame", () => {
+  it("is down the screen upright, into it flat, and out of it face down", () => {
+    const upright = deviceDown(90, 0)!;
+    expect(upright[0]).toBeCloseTo(0, 6);
+    expect(upright[1]).toBeCloseTo(-1, 6);
+    expect(upright[2]).toBeCloseTo(0, 6);
+    expect(deviceDown(0, 0)![2]).toBeCloseTo(-1, 6);
+    expect(deviceDown(180, 0)![2]).toBeCloseTo(1, 6);
+    expect(deviceDown(null, 0)).toBeNull();
+  });
+
+  it("agrees with the rotation the sky is turned by", () => {
+    for (const [a, b, g] of [
+      [0, 90, 0],
+      [30, 60, 20],
+      [200, -40, 70],
+    ] as const) {
+      const r = deviceToEarth(a, b, g);
+      const d = deviceDown(b, g)!;
+      // The phone's down, turned into the Earth's frame, is the Earth's down.
+      const ex = r[0]! * d[0] + r[1]! * d[1] + r[2]! * d[2];
+      const ey = r[3]! * d[0] + r[4]! * d[1] + r[5]! * d[2];
+      const ez = r[6]! * d[0] + r[7]! * d[1] + r[8]! * d[2];
+      expect(ex).toBeCloseTo(0, 6);
+      expect(ey).toBeCloseTo(0, 6);
+      expect(ez).toBeCloseTo(-1, 6);
+    }
+    // Held upright with no heading, the screen looks north: into the
+    // screen (−z) is +y in the Earth's frame.
+    const r = deviceToEarth(0, 90, 0);
+    expect(-r[2]!).toBeCloseTo(0, 6);
+    expect(-r[5]!).toBeCloseTo(1, 6);
+    expect(-r[8]!).toBeCloseTo(0, 6);
+  });
+});
+
 describe("the lean the heaps hold", () => {
   it("is the tangent of the tilt, positive to the right, in the glass's own sense", () => {
-    expect(leanOf({ down: 1, across: 0 }, 1)).toBeCloseTo(0, 6);
-    expect(leanOf({ down: Math.SQRT1_2, across: Math.SQRT1_2 }, 1)).toBeCloseTo(
-      1,
-      6,
-    );
+    expect(leanOf({ down: 1, across: 0 }, 1)!.x).toBeCloseTo(0, 6);
     expect(
-      leanOf({ down: Math.SQRT1_2, across: -Math.SQRT1_2 }, 1),
+      leanOf({ down: Math.SQRT1_2, across: Math.SQRT1_2 }, 1)!.x,
+    ).toBeCloseTo(1, 6);
+    expect(
+      leanOf({ down: Math.SQRT1_2, across: -Math.SQRT1_2 }, 1)!.x,
     ).toBeCloseTo(-1, 6);
     // Upside down, the same reading is read against the other end.
     expect(
-      leanOf({ down: -Math.SQRT1_2, across: Math.SQRT1_2 }, -1),
+      leanOf({ down: -Math.SQRT1_2, across: Math.SQRT1_2 }, -1)!.x,
     ).toBeCloseTo(1, 6);
   });
 
-  it("is capped where a glass is on its side, and unread when the phone is flat", () => {
-    expect(leanOf({ down: 0.05, across: 0.99 }, 1)).toBeCloseTo(MAX_LEAN, 6);
-    expect(leanOf({ down: 0.05, across: -0.99 }, 1)).toBeCloseTo(-MAX_LEAN, 6);
-    expect(leanOf({ down: 0.1, across: 0.1 }, 1)).toBeNull();
+  it("leans to the back when the phone is leaned back, and to the front when forward", () => {
+    // Leaned back thirty degrees: the sand slides to the back of the bulb.
+    const back = leanOf(screenGravity(60, 0), 1)!;
+    expect(back.z).toBeCloseTo(-Math.tan(Math.PI / 6), 6);
+    expect(back.x).toBeCloseTo(0, 6);
+    const forward = leanOf(screenGravity(120, 0), 1)!;
+    expect(forward.z).toBeGreaterThan(0);
+  });
+
+  it("is capped where a glass is on its side, whole, and read even flat", () => {
+    expect(leanOf({ down: 0.05, across: 0.99 }, 1)!.x).toBeCloseTo(MAX_LEAN, 6);
+    expect(leanOf({ down: 0.05, across: -0.99 }, 1)!.x).toBeCloseTo(
+      -MAX_LEAN,
+      6,
+    );
+    const flat = leanOf(screenGravity(0, 0), 1)!;
+    expect(Math.hypot(flat.x, flat.z)).toBeCloseTo(MAX_LEAN, 6);
+    expect(flat.z).toBeLessThan(0);
     expect(leanOf(null, 1)).toBeNull();
   });
 

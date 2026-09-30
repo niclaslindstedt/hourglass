@@ -11,6 +11,7 @@ import {
   type Look,
   type LookPreset,
 } from "./look.ts";
+import { SKY_CHOICES, type SkyChoice } from "./sky.ts";
 import { DEFAULT_MINUTES, clampMinutes } from "./timer.ts";
 
 // The app's settings: which of the two themes is on, which hourglass is on
@@ -36,8 +37,13 @@ export type AppSettings = {
   /** Keep the screen from sleeping while the sand runs. */
   awake: boolean;
   /** Turn the glass over by turning the phone over: the sensor decides
-   *  which way is down. On iOS the first press on the glass asks for it. */
+   *  which way is down. On iOS the first tap on the glass asks for it. */
   sensor: boolean;
+  /** A tick in the hand when the sand hits the glass — a shake, a turn —
+   *  where the device can buzz. */
+  haptics: boolean;
+  /** The sky behind the glass: the one outside now, or a fixed one. */
+  sky: SkyChoice;
   /** Surface the developer affordances in Settings. */
   devMode: boolean;
   /** Mirror console output into the in-app log buffer. */
@@ -52,6 +58,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   vibrate: true,
   awake: true,
   sensor: true,
+  haptics: true,
+  sky: "now",
   devMode: false,
   captureLogs: false,
 };
@@ -83,6 +91,10 @@ export function parseSettings(raw: string): AppSettings {
     vibrate: merged.vibrate !== false,
     awake: merged.awake !== false,
     sensor: merged.sensor !== false,
+    haptics: merged.haptics !== false,
+    sky: SKY_CHOICES.includes(merged.sky as SkyChoice)
+      ? (merged.sky as SkyChoice)
+      : "now",
     devMode: merged.devMode === true,
     captureLogs: merged.captureLogs === true,
   };

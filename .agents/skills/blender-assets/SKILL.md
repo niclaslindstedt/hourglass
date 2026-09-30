@@ -1,19 +1,29 @@
 ---
 name: blender-assets
-description: "Use when the hourglass's frames or glasses are to be MODELLED IN BLENDER off the app's own data — a better plate, post, finial or glass, a new top or glass shape's sprites, a photographed surface swapped, or the sand's grain — for the sprites paint.ts composites the picture from. Owns `make blender` (`scripts/blender.mjs`, the driver), the Blender shelf (`scripts/blender/lib.py`: materials from CC0 textures, lathes, boxes, the app's own light and camera, the cropped sprite render), the builder (`scripts/blender/hourglass.py`), THE MODELS IN THE APP (`public/models/` and its manifest, `src/app/sprites.ts`, the composite in `paint.ts` and `paintGlass.ts`, the painter's own drawing as the fallback), the texture sources and their licence, installing Blender headless, and what a photographed reference may and may not become."
+description: "Use when the hourglass's frames or glasses are to be MODELLED IN BLENDER off the app's own data — a better plate, post, finial or glass, a new top or glass shape's sprites, a photographed surface swapped, or the sand's grain — for the sprites paint.ts composites the flat picture from (the preset cards and the no-WebGL fallback; the 3D stage builds its own parts from look.ts and takes only the grain). Owns `make blender` (`scripts/blender.mjs`, the driver), the Blender shelf (`scripts/blender/lib.py`: materials from CC0 textures, lathes, boxes, the app's own light and camera, the cropped sprite render), the builder (`scripts/blender/hourglass.py`), THE MODELS IN THE APP (`public/models/` and its manifest, `src/app/sprites.ts`, the composite in `paint.ts` and `paintGlass.ts`, the painter's own drawing as the fallback), the texture sources and their licence, installing Blender headless, and what a photographed reference may and may not become."
 ---
 
 # Blender assets
 
-The app draws its **plates, posts, finials and the light on the glass from
-sprites made here** — committed under `public/models/` by `make blender` —
-and draws the sand, the stream, the tint and the shadows itself, because
-those move. Where a sprite is missing or has not loaded yet, the painter
-draws its own plate, post, finial and glass light, so the picture is never
-empty and the build never depends on Blender. The sprites are the better
-picture: a real photographed walnut, a turned brass baluster lit by the
-same light the sand is lit by, a glass whose reflections were traced
-rather than guessed.
+**Where the sprites are used.** The glass on the screen is drawn in 3D by
+three.js (`src/app/render/stage.ts`), and its frame and glass are built
+there straight from `look.ts` and `glass.ts` (`render/parts.ts`: lathes,
+boxes and physical materials) — no sprite is involved. The sprites made
+here serve the **flat picture**: the preset cards in Settings (each a
+still `MiniGlass`) and the fallback the app paints where WebGL cannot
+start. `useSprites(look, enabled)` loads them only when the flat painter is
+in use. The one file the 3D stage does take from this pipeline is the
+photographed grain, `public/models/grain.png`, as the sand's bump.
+
+In the flat picture the app draws its **plates, posts, finials and the
+light on the glass from sprites made here** — committed under
+`public/models/` by `make blender` — and draws the sand, the stream, the
+tint and the shadows itself, because those move. Where a sprite is missing
+or has not loaded yet, the painter draws its own plate, post, finial and
+glass light, so the picture is never empty and the build never depends on
+Blender. The sprites are the better flat picture: a real photographed
+walnut, a turned brass baluster lit by the same light the sand is lit by, a
+glass whose reflections were traced rather than guessed.
 
 Three rules make that possible, and every step below serves one of them:
 
@@ -25,8 +35,8 @@ Three rules make that possible, and every step below serves one of them:
    where `paintPlate` would have drawn it, and when a spec moves the
    sprite moves with it on the next run. A hand-typed dimension in the
    builder is the drift this rules out.
-2. **The camera and the light are the app's.** `lib.py`'s `camera()` is
-   `scene.ts`'s orthographic view (`PITCH`, `YAW`) and `studio()` its
+2. **The camera and the light are the flat painter's.** `lib.py`'s
+   `camera()` is `scene.ts`'s orthographic view (`PITCH`, `YAW`) and `studio()` its
    `LIGHT`, so a sprite lands on the canvas by a scale and an offset and
    is lit as the sand beside it is lit. A sprite is a picture in SCREEN
    space; the manifest says where its top-left corner is in units of the
@@ -48,18 +58,22 @@ follow.
 | `scripts/blender/lib.py`            | THE SHELF: the scene, `mat` (a plain surface, or glass), `tex_mat` (a photographed one: colour, roughness, normal, metalness maps, tinted by `tone`), `turn` (a solid of revolution off an `(r, z)` profile — a plate, a spindle, a finial, the bulbs), `box`, `cyl`, `studio` (the app's light), `camera` (the app's camera), `sprite` (one part rendered alone, cropped to where it lands, recorded) |
 | `scripts/blender/hourglass.py`      | THE BUILDER: a TOP job (a plate per glass, the post — two for bands — and the finial), a GLASS job (the two bulbs as one hollow solid over a solid core, in an `add` pass and a `multiply` pass), a GRAIN job (the photographed sand's high-pass as a tile)                                                                                                                                            |
 | `public/models/`                    | THE SPRITES and `manifest.json`: `<top>-plate-<glass>.webp`, `<top>-post.webp` (`-post-a`/`-post-b` for bands), `<top>-finial.webp`, `<glass>-add.webp`, `<glass>-multiply.webp`, `grain.png`. Committed                                                                                                                                                                                               |
-| `src/app/sprites.ts`                | THE LOADER: the manifest fetched once, each picture once, `useSprites(look)` for what a look is drawn with — null until loaded, null for good where a build ships no models                                                                                                                                                                                                                            |
-| `src/app/paint.ts`, `paintGlass.ts` | THE COMPOSITE: `drawSprite` / `drawSpriteAt` (a post or a finial moved to each place by the difference of two projections), the plate drawn twice (the top one lifted by the glass and a plate), the glass's `multiply` then `add` over the sand; the painter's own drawing on every branch where a sprite is missing                                                                                  |
+| `src/app/sprites.ts`                | THE LOADER: the manifest fetched once, each picture once, `useSprites(look, enabled)` for what a look is drawn with, only while the flat painter is in use — null until loaded, null for good where a build ships no models                                                                                                                                                                            |
+| `src/app/render/stage.ts`           | THE 3D STAGE: takes `grain.png` as the sand's bump map and nothing else from here; its frame and glass are `render/parts.ts`'s, built off `look.ts`                                                                                                                                                                                                                                                    |
+| `src/app/paint.ts`, `paintGlass.ts` | THE COMPOSITE (the flat picture only): `drawSprite` / `drawSpriteAt` (a post or a finial moved to each place by the difference of two projections), the plate drawn twice (the top one lifted by the glass and a plate), the glass's `multiply` then `add` over the sand; the painter's own drawing on every branch where a sprite is missing                                                          |
 | `.cache/textures/`                  | The photographed surfaces, fetched, never committed (CC0 — ambientCG); `TEXTURES` in the driver says which asset each top wears                                                                                                                                                                                                                                                                        |
 | `previews/blender/`                 | Quick passes, gitignored                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## The loop
 
-1. **Look at what the app draws first**: `make shots ARGS="--preset all"`
-   with the sprites removed (`rm -rf public/models` in a scratch branch,
-   or `--out previews/blender` for the new ones) — the painter's own
-   picture is the bar a model has to clear, and the fallback a reader on a
-   build without models sees.
+1. **Look at what the app draws first**: the flat picture is what the
+   sprites change, so look at the preset cards —
+   `make shots ARGS="--screen settings --device phone"` — with the sprites
+   removed (`rm -rf public/models` in a scratch branch, or `--out
+previews/blender` for the new ones). The painter's own picture is the
+   bar a model has to clear, and the fallback a reader without WebGL sees.
+   (The `screenshot` skill's Chromium has WebGL, on SwiftShader, so its
+   glass screens show the 3D stage, not the sprites.)
 2. **Get references — locally.** A photograph of a real hourglass of the
    kind (a wooden thirty-minute glass, a ship's glass in brass). It goes
    in the session's scratchpad ONLY: never under the tree, never in an
@@ -72,13 +86,14 @@ follow.
    driver prints each one's file and place; a short PIL script over the
    manifest lays them out the way the painter will).
 4. **Then the app**: `make blender ARGS="--top walnut"` (into
-   `public/models/`), `make shots ARGS="--preset study --theme dark,light"`.
-   The glass's two passes are judged over the sand, on both pages, and the
-   plate against the painter's own on the shot beside it.
+   `public/models/`), `make shots ARGS="--theme both --screen settings"` —
+   the cards. The glass's two passes are judged over the sand, on both
+   pages, and the plate against the painter's own on the shot beside it.
 5. **Then everything**: `make blender` — every top, every glass, the grain
    — at the shipping resolution and samples, then `make shots
-ARGS="--preset all --theme dark,light --settings"`, and every preset
-   card in Settings.
+ARGS="--theme both --screen settings --device phone,desktop"`, every
+   preset card in Settings; and, if the grain changed, `make shots
+ARGS="--variant presets --screen glass"` for the 3D sand it bumps.
 6. **Report** before and after with the pictures.
 
 ## The frame
@@ -161,11 +176,11 @@ own fallback too (`paint.ts`), never by the sprite alone.
       painter's own
 - [ ] `make blender` into `public/models/`; the manifest lists every top
       and every glass; the sprites' sizes are sane (`du -sh public/models`)
-- [ ] `make shots ARGS="--preset all --theme dark,light --settings"` — the
-      plates, the posts, the finials and the glass on both pages, and the
-      preset cards
-- [ ] Docs: `docs/design.md` (the picture), this skill's tables if a piece
-      moved
+- [ ] `make shots ARGS="--theme both --screen settings"` — the plates, the
+      posts, the finials and the glass on both pages, on the preset cards;
+      `--variant presets --screen glass` too if the grain changed
+- [ ] Docs: `docs/design.md` (the modelled parts), this skill's tables if
+      a piece moved
 - [ ] A changelog fragment when the picture changed
 - [ ] Record the marker:
 
@@ -175,9 +190,9 @@ own fallback too (`paint.ts`), never by the sprite alone.
 
 1. `make lint && make test && make fmt-check` pass; `tests/sprites_test.ts`
    holds the manifest to every top and glass in `look.ts`.
-2. With `public/models` removed the app still draws every preset (the
-   painter's own fallback) — `make shots ARGS="--preset all"` in a scratch
-   copy.
+2. With `public/models` removed the app still draws every preset card (the
+   painter's own fallback) and the 3D sand draws smooth —
+   `make shots ARGS="--screen settings,glass"` in a scratch copy.
 3. No reference photograph, maker or shop is named anywhere in the tree,
    the commit or the PR.
 

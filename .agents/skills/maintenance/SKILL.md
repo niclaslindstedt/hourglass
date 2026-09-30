@@ -30,6 +30,7 @@ The registry is the single source of truth for which sync skills exist in this r
 | `update-readme`      | `README.md` vs. the current public surface                                                                                                       | 3                                                                               |
 | `add-hourglass-look` | Not a sync skill: the playbook for a new top, glass, sand or preset, and the trademark rules it keeps                                            | — (on request; never scheduled by a sweep)                                      |
 | `blender-assets`     | Not a sync skill: the frames, the glasses and the grain modelled in Blender off `look.ts` into `public/models/`, and the app's composite of them | — (on request; never scheduled by a sweep)                                      |
+| `screenshot`         | Not a sync skill: the app photographed in headless Chromium onto contact sheets, for looking at a visual change while making it                  | — (on request; never scheduled by a sweep)                                      |
 
 Run order matters: `update-readme` reads the docs that `update-docs` rewrites, so it must run after it. A new skill that reads files another skill rewrites goes after that skill.
 

@@ -14,6 +14,7 @@ import { HourglassPicker, Labelled } from "./HourglassPicker.tsx";
 import { AppMarkIcon } from "./icons.tsx";
 import { useT } from "./i18n/index.ts";
 import { logStore } from "./log.ts";
+import { SKY_CHOICES } from "./sky.ts";
 import { DURATIONS, splitMinutes } from "./timer.ts";
 import type { AppSettings, ThemeChoice } from "./useAppSettings.ts";
 
@@ -25,9 +26,11 @@ import type { AppSettings, ThemeChoice } from "./useAppSettings.ts";
 type Props = {
   settings: AppSettings;
   update: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+  /** Ask for the motion sensors, from the tap that turns them on. */
+  onAskMotion?: () => void;
 };
 
-export function SettingsScreen({ settings, update }: Props) {
+export function SettingsScreen({ settings, update, onAskMotion }: Props) {
   const t = useT();
   const length = (m: number) => {
     const { hours, minutes } = splitMinutes(m);
@@ -118,8 +121,50 @@ export function SettingsScreen({ settings, update }: Props) {
           label={t("settings.sensor")}
           hint={t("settings.sensorHint")}
           checked={settings.sensor}
-          onChange={(next) => update("sensor", next)}
+          onChange={(next) => {
+            update("sensor", next);
+            // A toggle is a tap: on iOS, the moment to ask for the sensors.
+            if (next) onAskMotion?.();
+          }}
         />
+        <ToggleRow
+          label={t("settings.haptics")}
+          hint={t("settings.hapticsHint")}
+          checked={settings.haptics}
+          onChange={(next) => update("haptics", next)}
+        />
+      </Section>
+
+      <Section
+        title={t("settings.sky")}
+        icon={<CogIcon className="h-3.5 w-3.5" />}
+      >
+        <p className="text-xs text-muted">{t("settings.skyHint")}</p>
+        <div
+          role="radiogroup"
+          aria-label={t("settings.sky")}
+          className="flex flex-wrap gap-1.5"
+        >
+          {SKY_CHOICES.map((choice) => {
+            const on = settings.sky === choice;
+            return (
+              <button
+                key={choice}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => update("sky", choice)}
+                className={`min-h-8 rounded-full border px-3 text-sm transition-colors ${
+                  on
+                    ? "border-accent bg-accent/15 text-fg-bright"
+                    : "border-line bg-surface-2 text-fg hover:bg-surface-1"
+                }`}
+              >
+                {t(`settings.skies.${choice}`)}
+              </button>
+            );
+          })}
+        </div>
       </Section>
 
       <Section

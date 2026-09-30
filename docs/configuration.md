@@ -43,22 +43,28 @@ way, for developing only — see [`../tauri/README.md`](../tauri/README.md).
 Under the **⚙** in the corner. Persisted per device in localStorage
 (`hourglass:settings`), never synced.
 
-| Setting                | Values                                                  | Default  |
-| ---------------------- | ------------------------------------------------------- | -------- |
-| Theme                  | Light / Dark / Device                                   | Device   |
-| Hourglass              | one of ten presets / Custom                             | Study    |
-| Custom: the frame      | Walnut, Oak, Pine, Ebony, Brass, Copper, Steel, None    | Walnut   |
-| Custom: the glass      | Teardrop, Sphere, Cone, Slim, Antique, Bell             | Teardrop |
-| Custom: the sand       | Quartz, White, Black, Red, Blue, Gold, Rose, Green      | Quartz   |
-| Length                 | 1–10 min by the minute, 15, 20, 25, 30, 45, 60, 90, 120 | 5 min    |
-| Buzz when it runs out  | on / off                                                | on       |
-| Keep the screen on     | on / off                                                | on       |
-| Turn with the phone    | on / off                                                | on       |
-| Developer mode         | on / off                                                | off      |
-| Capture console output | on / off (developer mode)                               | off      |
+| Setting                | Key            | Values                                                   | Default  |
+| ---------------------- | -------------- | -------------------------------------------------------- | -------- |
+| Theme                  | `theme`        | Light / Dark / Device                                    | Device   |
+| Hourglass              | `preset`       | one of ten presets / Custom                              | Study    |
+| Custom: the frame      | `custom.top`   | Walnut, Oak, Pine, Ebony, Brass, Copper, Steel, None     | Walnut   |
+| Custom: the glass      | `custom.glass` | Teardrop, Sphere, Cone, Slim, Antique, Bell              | Teardrop |
+| Custom: the sand       | `custom.sand`  | Quartz, White, Black, Red, Blue, Gold, Rose, Green       | Quartz   |
+| Length                 | `minutes`      | 1–10 min by the minute, 15, 20, 25, 30, 45, 60, 90, 120  | 5 min    |
+| Buzz when it runs out  | `vibrate`      | on / off                                                 | on       |
+| Keep the screen on     | `awake`        | on / off                                                 | on       |
+| Turn with the phone    | `sensor`       | on / off                                                 | on       |
+| Feel the sand          | `haptics`      | on / off                                                 | on       |
+| The sky                | `sky`          | Now / Day / Dusk / Night (`now`, `day`, `dusk`, `night`) | Now      |
+| Developer mode         | `devMode`      | on / off                                                 | off      |
+| Capture console output | `captureLogs`  | on / off (developer mode)                                | off      |
 
 The length is also set on the glass itself, by dragging; the two are one
-setting. Both the preset and the custom look are kept, so going back to a
+setting. **Feel the sand** buzzes when the sand hits the glass, on a device
+that can (`navigator.vibrate` — Android; not Safari on an iPhone). **The
+sky** is the sky behind the glass and the light on it: **Now** is the sky
+outside at this moment, placed by the device's time zone (never by asking
+where the device is); the other three are fixed. Both the preset and the custom look are kept, so going back to a
 preset and then to Custom again finds the custom glass as it was left.
 
 ## Storage keys

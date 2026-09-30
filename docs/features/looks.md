@@ -6,7 +6,8 @@ and nothing about how it runs — the same length is the same time in any of
 them, and the only behaviour a look carries is its sand's angle of repose.
 
 Every card is a still of the glass it picks, part way through a run, so the
-choice previews itself.
+choice previews itself. The cards are painted flat; the glass on the screen
+is the same look in three dimensions.
 
 ## The presets
 
@@ -63,6 +64,9 @@ the sand's model does not care what it is in.
 
 A new frame, glass, sand or preset is a row in the tables in
 `src/app/look.ts`, a name in `src/app/i18n/en.ts`, and a look at the result
-with `make shots`. The `add-hourglass-look` skill under `.agents/skills/` is
+with the `screenshot` skill — `make shots ARGS="--variant presets --screen
+glass"` for every preset side by side, or `--settings
+'{"preset":"custom","custom":{"top":"steel","glass":"bell","sand":"blue"}}'`
+for one combination. The `add-hourglass-look` skill under `.agents/skills/` is
 the procedure, and it keeps makers' names and trademarked features out: a
 look is named for where you would find one.
