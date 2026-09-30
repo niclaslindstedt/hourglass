@@ -148,11 +148,13 @@ One screen, and the glass is all of it:
 | **Shake the phone**       | The grains are thrown up, hit the glass and land, and the heaps slump flatter while it lasts. On a phone that can buzz, **Feel the sand** lets you feel them hit. The time is untouched.                                                                                                                         |
 | When the sand has run out | A soft light comes up behind the glass, and the device buzzes if it can and the setting is on.                                                                                                                                                                                                                   |
 
-…and one button, the cog in the corner:
+…and one button, the cog in the corner — with, on the website, a second
+beside it when there is something new:
 
-| Button | What it does                                                                                                                                                                                                                                                                                                                                               |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **⚙**  | Settings: theme; the hourglass — ten presets or Custom, which combines eight frames, six glasses and eight sands; the timer's length, a buzz when it runs out, keeping the screen on while the sand runs, turning with the phone, and feeling the sand hit the glass; the sky — now (the sky outside), day, dusk or night; developer tools; and the build. |
+| Button | What it does                                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **⚙**  | Settings: theme; the hourglass — ten presets or Custom, which combines eight frames, six glasses and eight sands; the timer's length, a buzz when it runs out, keeping the screen on while the sand runs, turning with the phone, and feeling the sand hit the glass; the sky — now (the sky outside), day, dusk or night; developer tools; and the build, with a check for updates. |
+| **↻**  | Only when a new version has landed: reloads onto it, the sand where it was.                                                                                                                                                                                                                                                                                                          |
 
 ## Configuration
 

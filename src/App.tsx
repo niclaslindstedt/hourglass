@@ -3,11 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   CogIcon,
-  SpinnerIcon,
   ToastViewport,
   createToastStore,
 } from "@niclaslindstedt/oss-framework/components";
-import { UpdateToast, usePwaUpdate } from "@niclaslindstedt/oss-framework/pwa";
+import { usePwaUpdate } from "@niclaslindstedt/oss-framework/pwa";
 import { useApplyTheme } from "@niclaslindstedt/oss-framework/theme";
 
 import { placeOfZone } from "./app/astronomy.ts";
@@ -21,6 +20,7 @@ import { SettingsScreen } from "./app/SettingsScreen.tsx";
 import { SidePanel } from "./app/SidePanel.tsx";
 import { newRun, type Run } from "./app/timer.ts";
 import { TopBar } from "./app/TopBar.tsx";
+import { UpdateGlyph } from "./app/UpdateGlyph.tsx";
 import { useAppSettings, type AppSettings } from "./app/useAppSettings.ts";
 import {
   motionNeedsPermission,
@@ -213,7 +213,6 @@ export function App() {
     };
   }, [running, settings.awake, run.startedAt]);
 
-  const [reloading, setReloading] = useState(false);
   const pwa = usePwaUpdate({
     base: import.meta.env.BASE_URL,
     cacheId: cacheIdForBase(import.meta.env.BASE_URL),
@@ -228,6 +227,7 @@ export function App() {
       settings={settings}
       update={update}
       onAskMotion={askMotion}
+      pwa={pwa}
     />
   );
   const phoneSettings = !desk && settingsOpen;
@@ -276,6 +276,14 @@ export function App() {
             >
               <CogIcon className="h-5 w-5" />
             </button>
+            {/* A new version, beside the cog and turning with it — a glyph,
+                not a banner over the glass. */}
+            <UpdateGlyph
+              ready={pwa.needRefresh}
+              upside={cogUpside}
+              shown={cogShown}
+              onReload={pwa.reload}
+            />
           </div>
         )}
 
@@ -285,34 +293,6 @@ export function App() {
           </SidePanel>
         )}
       </main>
-
-      <div className="app-update-slot relative z-[60]">
-        {pwa.needRefresh && reloading ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="absolute inset-x-3 bottom-3 mx-auto flex max-w-md items-center gap-3 rounded-sm border border-line bg-surface px-3 py-2.5 text-fg shadow-md"
-          >
-            <SpinnerIcon className="h-5 w-5 animate-spin text-accent" />
-            <span className="text-sm font-medium">{t("update.reload")}</span>
-          </div>
-        ) : (
-          <UpdateToast
-            needRefresh={pwa.needRefresh}
-            incomingVersion={pwa.incomingVersion}
-            onReload={() => {
-              setReloading(true);
-              pwa.reload();
-            }}
-            onDismiss={() => pwa.dismiss()}
-            labels={{
-              ready: t("update.available"),
-              action: t("update.reload"),
-              dismiss: t("common.close"),
-            }}
-          />
-        )}
-      </div>
 
       {/* Top, not the framework's default bottom: the bottom of the screen
           is where a thumb rests on the glass. */}

@@ -9,6 +9,7 @@ import {
   ScrollTextIcon,
 } from "@niclaslindstedt/oss-framework/components";
 import { LogViewer } from "@niclaslindstedt/oss-framework/logging";
+import type { PwaUpdate } from "@niclaslindstedt/oss-framework/pwa";
 
 import { HourglassPicker, Labelled } from "./HourglassPicker.tsx";
 import { AppMarkIcon } from "./icons.tsx";
@@ -16,6 +17,7 @@ import { useT } from "./i18n/index.ts";
 import { logStore } from "./log.ts";
 import { SKY_CHOICES } from "./sky.ts";
 import { DURATIONS, splitMinutes } from "./timer.ts";
+import { UpdateCheck } from "./UpdateCheck.tsx";
 import type { AppSettings, ThemeChoice } from "./useAppSettings.ts";
 
 // One scrolling page: a handful of groups, and paging between tabs to find
@@ -28,9 +30,11 @@ type Props = {
   update: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
   /** Ask for the motion sensors, from the tap that turns them on. */
   onAskMotion?: () => void;
+  /** The update lifecycle, for About's "Check for updates". */
+  pwa: PwaUpdate;
 };
 
-export function SettingsScreen({ settings, update, onAskMotion }: Props) {
+export function SettingsScreen({ settings, update, onAskMotion, pwa }: Props) {
   const t = useT();
   const length = (m: number) => {
     const { hours, minutes } = splitMinutes(m);
@@ -205,6 +209,7 @@ export function SettingsScreen({ settings, update, onAskMotion }: Props) {
           <dt className="text-muted">{t("settings.build")}</dt>
           <dd className="text-fg">{__BUILD_LABEL__}</dd>
         </dl>
+        {!__SHELL_BUILD__ && <UpdateCheck pwa={pwa} />}
         <p className="text-xs leading-snug text-muted">
           {t("settings.privacy")}
         </p>
