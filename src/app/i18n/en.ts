@@ -24,8 +24,8 @@ export const en = {
   // The hourglass itself: what a press does, and what it says to a screen
   // reader.
   glass: {
-    aria: "The hourglass, {state}. Press to turn it over; drag up or down to change how long it runs.",
-    hint: "Press to turn it over. Drag up or down to make it a longer or a shorter glass.",
+    aria: "The hourglass, {state}. Press to turn it over; drag up or down to change how long it runs; drag sideways, or use the left and right arrows, to turn it round.",
+    hint: "Press to turn it over. Drag up or down to make it a longer or a shorter glass, sideways to turn it round.",
     running: "running",
     paused: "standing still",
     done: "run out",
@@ -146,7 +146,19 @@ export const en = {
     awakeHint: "While the sand is running, the screen does not go to sleep.",
     sensor: "Turn with the phone",
     sensorHint:
-      "Turn the phone upside down and the sand runs the other way; tilt it and the heaps lean with it; shake it and the grains jump — the glass stays where it is on the screen; it is the phone that moved. Uses the motion sensors, which on an iPhone ask for permission the first time you press the glass. The readings are used for the next frame and nothing else — never stored or sent.",
+      "Turn the phone upside down and the sand falls to the other end and runs the other way; lean it to a side, back or forward and the heaps slide that way; shake it and the grains jump; swing it and the glass swings a little behind. The sky behind stays level with the world. Uses the motion sensors, which on an iPhone ask for permission the first time you tap the glass. The readings are used for the next frame and nothing else — never stored or sent.",
+    haptics: "Feel the sand",
+    hapticsHint:
+      "A tick in the hand when the sand hits the glass — when it is shaken, or lands after a turn — where the device can buzz.",
+    sky: "The sky",
+    skyHint:
+      "What stands behind the glass, and lights it. Now is the sky outside at this moment — the sun or the moon where they stand, as bright as the hour, the season and the place make it, the place read from the device's time zone and never sent anywhere.",
+    skies: {
+      now: "Now",
+      day: "Day",
+      dusk: "Dusk",
+      night: "Night",
+    },
     developer: "Developer",
     devMode: "Developer mode",
     devModeHint: "Show the log panel.",

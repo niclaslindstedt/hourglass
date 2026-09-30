@@ -100,13 +100,29 @@ describe("the flowing layer", () => {
     const left = Math.round(b.m / 2);
     const at = (a: number) => b.height[(b.n - 8) * b.m + a]!;
     expect(Math.abs(spokeAngle(b, right))).toBeLessThan(0.2);
-    setGravity(b, Math.sin(0.6), -Math.cos(0.6), 0);
+    // Fifty degrees: past the static angle, so the bed lets go. (Under it a
+    // flat bed holds, as real sand does.)
+    setGravity(b, Math.sin(0.87), -Math.cos(0.87), 0);
     step(b, FRAME, 1);
     const early = at(right) - at(left);
     run(b, 4);
     const late = at(right) - at(left);
     expect(late).toBeGreaterThan(0.02);
     expect(late).toBeGreaterThan(early * 2);
+  });
+
+  it("holds a flat bed tilted less than its static angle", () => {
+    const b = bulb("plate");
+    levelFill(b, capacity(b) * 0.35);
+    const before = Float64Array.from(b.height);
+    setGravity(b, Math.sin(0.5), -Math.cos(0.5), 0);
+    run(b, 1);
+    // A few grains at the edge, where the wall under the bed rises, settle
+    // against it; the bed itself does not move.
+    let mean = 0;
+    for (let k = 0; k < before.length; k++)
+      mean += Math.abs(before[k]! - b.height[k]!) / before.length;
+    expect(mean).toBeLessThan(1e-4);
   });
 
   it("stands still once it has come to rest", () => {

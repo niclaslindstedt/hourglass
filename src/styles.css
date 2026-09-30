@@ -124,6 +124,15 @@ body {
   right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
 }
 
+/* The phone held upside down: the cog in the corner that is now the top
+   right, turned to read the right way up. */
+.app-cog.app-cog-upside {
+  top: auto;
+  right: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  left: calc(env(safe-area-inset-left, 0px) + 0.5rem);
+}
+
 /* ── Selection, and the lens a caret is placed with ──────────────────────
    The app is an instrument rather than a document: a press held on the
    glass is a drag, not the start of a selection, and on iOS not the glass a

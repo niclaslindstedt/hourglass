@@ -1,4 +1,4 @@
-.PHONY: demo build test lint fmt fmt-check actionlint release clean docs website website-dev install icons changelog bump shots blender native-install native-bundle native-typecheck native-prebuild store-preflight store-metadata store-upload tauri tauri-bundle tauri-clean tauri-fast tauri-fmt tauri-fmt-check tauri-install tauri-lint tauri-package tauri-package-debug tauri-test
+.PHONY: demo build test lint fmt fmt-check actionlint release clean docs website website-dev install icons changelog bump shots shots-warm blender native-install native-bundle native-typecheck native-prebuild store-preflight store-metadata store-upload tauri tauri-bundle tauri-clean tauri-fast tauri-fmt tauri-fmt-check tauri-install tauri-lint tauri-package tauri-package-debug tauri-test
 
 build:
 	npm run build
@@ -33,12 +33,19 @@ demo:
 icons:
 	npm run icons
 
-# Pictures of the glass in a few states, into shots/, for iterating on its
-# look. Builds first, so the picture is of the code as it is. Pass the
-# script's options through ARGS: `make shots ARGS="--preset all --theme light"`.
-# Needs playwright, installed outside the lockfile — the script says how.
+# Screenshots of the glass — contact sheets of devices × themes × settings ×
+# screens (the glass running, turned, leaned, shaken, the sky, Settings), or
+# one frame — for looking at a change while making it
+# (.agents/skills/screenshot/SKILL.md). Builds only when the sources moved.
+# Pass shoot.mjs's options through ARGS:
+#   make shots ARGS="--variant presets --screen glass --group screen --cols variant"
+# `shots-warm` does the first run's slow parts (a browser, the build) ahead
+# of time; every run after it starts shooting at once.
 shots:
-	npm run build && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/glass-shots.mjs $(ARGS)
+	node .agents/skills/screenshot/shoot.mjs $(ARGS)
+
+shots-warm:
+	node .agents/skills/screenshot/warm.mjs
 
 # The modelled parts: every frame and every glass built in Blender off
 # look.ts and photographed by the app's own camera into public/models/, the

@@ -460,17 +460,20 @@ export function toss(bulb: Bulb, seed: number): number {
  * against and falls to the other, which is where the other bulb's role
  * now rests. `a` and `b` swap their sand — `a`'s falls into `b`'s frame
  * and `b`'s into `a`'s — as grains, two a cell, so the heap drops as a
- * body and lands in a scatter the flow then brings to its angle. The turn
- * is half a turn about the axis into the screen, so what was on the right
- * is on the left.
+ * body and lands in a scatter the flow then brings to its angle.
+ *
+ * `mirror` is for a glass turned in the picture — half a turn about the
+ * axis into the screen, so what was on the right is on the left. A glass
+ * turned with the phone is the same glass in the same place on the screen,
+ * only upside down, and nothing crosses over.
  */
-export function turnOver(a: Bulb, b: Bulb): void {
+export function turnOver(a: Bulb, b: Bulb, mirror = true): void {
   const fromA = grainsOf(a);
   const fromB = grainsOf(b);
   clear(a);
   clear(b);
-  place(b, fromA);
-  place(a, fromB);
+  place(b, fromA, mirror);
+  place(a, fromB, mirror);
 }
 
 type Grain = [number, number, number, number, number, number, number];
@@ -508,13 +511,15 @@ function grainsOf(bulb: Bulb): Grain[] {
 }
 
 /** Grains from the other end of the glass into this bulb's frame: the
- *  heights read from the other end, and right and left swapped. */
-function place(bulb: Bulb, grains: Grain[]): void {
+ *  heights read from the other end, and — turned in the picture — right
+ *  and left swapped. */
+function place(bulb: Bulb, grains: Grain[], mirror: boolean): void {
   const H = bulb.shape.height;
+  const k = mirror ? -1 : 1;
   for (const [x, y, z, vx, vy, vz, vol] of grains) {
-    const X = -x;
+    const X = k * x;
     const Y = H - y;
-    if (!launch(bulb, X, Y, z, -vx, -vy, vz, vol)) pour(bulb, vol, X, z);
+    if (!launch(bulb, X, Y, z, k * vx, -vy, vz, vol)) pour(bulb, vol, X, z);
   }
 }
 

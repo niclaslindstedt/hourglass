@@ -1,0 +1,9 @@
+{
+  "name": "hourglass-screenshot-skill",
+  "private": true,
+  "type": "module",
+  "description": "Screenshots of the hourglass app for the screenshot agent skill — see SKILL.md",
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

@@ -97,9 +97,9 @@ export type SkyLook = {
 };
 
 /** Where the phone looks when it is held upright with no compass to say
- *  otherwise: a little west of south, so a noon sun stands over the glass
- *  and an evening one sets on the right of the picture. */
-export const VIEW_HEADING = (200 * Math.PI) / 180;
+ *  otherwise: west-south-west, so a noon sun lights the glass from the
+ *  left and an evening one goes down behind it. */
+export const VIEW_HEADING = (250 * Math.PI) / 180;
 
 /** Extinction per unit air mass, per channel — mostly Rayleigh (blue lost
  *  first), with a little aerosol so a low sun goes gold, not magenta. */
@@ -167,8 +167,8 @@ const MOONLIT_ZENITH: Rgb = [0.012, 0.024, 0.07];
 const MOONLIT_HORIZON: Rgb = [0.03, 0.045, 0.1];
 
 /** The renderer's key at a full-bright scene, and its dome light. */
-const KEY = 3.2;
-const AMBIENT = 1.1;
+const KEY = 1.8;
+const AMBIENT = 0.3;
 
 /** The sun and the moon, for `skyLookFor`. */
 export type Bodies = {
@@ -281,20 +281,20 @@ const DEG = Math.PI / 180;
  *  under a moon two days off full. */
 const FIXED: Record<Exclude<SkyChoice, "now">, Bodies> = {
   day: {
-    sun: { azimuth: 215 * DEG, altitude: 42 * DEG },
+    sun: { azimuth: 165 * DEG, altitude: 40 * DEG },
     moon: { azimuth: 90 * DEG, altitude: -20 * DEG },
     moonLit: 0.5,
     moonAngle: Math.PI / 2,
   },
   dusk: {
-    sun: { azimuth: 238 * DEG, altitude: 1.5 * DEG },
-    moon: { azimuth: 110 * DEG, altitude: 12 * DEG },
+    sun: { azimuth: 246 * DEG, altitude: 1.2 * DEG },
+    moon: { azimuth: 90 * DEG, altitude: 12 * DEG },
     moonLit: 0.35,
     moonAngle: 2.0,
   },
   night: {
-    sun: { azimuth: 0, altitude: -34 * DEG },
-    moon: { azimuth: 170 * DEG, altitude: 34 * DEG },
+    sun: { azimuth: 20, altitude: -34 * DEG },
+    moon: { azimuth: 225 * DEG, altitude: 30 * DEG },
     moonLit: 0.94,
     moonAngle: 0.5,
   },

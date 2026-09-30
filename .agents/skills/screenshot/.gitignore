@@ -1,0 +1,7 @@
+# The skill's own dependency tree (playwright-core, when no global one serves).
+node_modules/
+# The demo build the shots are taken of, and its stamp.
+.build/
+# Every screenshot and contact sheet. Reproducible from a command; never
+# committed.
+out/
