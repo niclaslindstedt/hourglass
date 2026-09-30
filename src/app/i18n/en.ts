@@ -38,9 +38,17 @@ export const en = {
     done: "The sand has run out",
   },
 
+  // A new version: the glyph beside the cog, and About's check.
   update: {
     available: "A new version is ready",
+    glyph: "A new version is ready — tap to reload",
     reload: "Reload",
+    reloading: "Reloading…",
+    check: "Check for updates",
+    checking: "Checking…",
+    upToDate: "This is the latest version",
+    unavailable: "Updates can't be checked here",
+    hint: "The app looks for a new version by itself and shows a small arrow beside the cog when one has landed. Reloading leaves the sand where it was.",
   },
 
   settings: {

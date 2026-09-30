@@ -133,6 +133,34 @@ body {
   left: calc(env(safe-area-inset-left, 0px) + 0.5rem);
 }
 
+/* A new version: a glyph beside the cog, one cog's width further in, and in
+   the other corner with it when the phone is upside down (`UpdateGlyph`). It
+   fades in rather than arriving, because nothing about it is urgent. */
+.app-update-glyph {
+  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  right: calc(env(safe-area-inset-right, 0px) + 3rem);
+  animation: app-update-in 900ms ease-out;
+}
+
+.app-update-glyph.app-update-glyph-upside {
+  top: auto;
+  right: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  left: calc(env(safe-area-inset-left, 0px) + 3rem);
+}
+
+@keyframes app-update-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-update-glyph {
+    animation: none;
+  }
+}
+
 /* ── Selection, and the lens a caret is placed with ──────────────────────
    The app is an instrument rather than a document: a press held on the
    glass is a drag, not the start of a selection, and on iOS not the glass a

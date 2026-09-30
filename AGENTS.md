@@ -314,6 +314,11 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   screen on the phone and a panel over the right-hand edge on the desk, with
   the top bar the phone's Settings screen sits under. The hourglass screen
   itself has no bar: the cog floats in its corner.
+- `src/app/UpdateGlyph.tsx`, `UpdateCheck.tsx` — a new version: the
+  framework's `usePwaUpdate` looks for one by itself, and when one has landed
+  a glyph floats beside the cog (turning corners with it) that reloads onto
+  it; About in Settings checks now. The website only — a shell build updates
+  by being replaced — and never a banner over the glass.
 - `src/app/shape.ts` / `useShape.ts` — phone or desk, the one thing the
   shell asks about a window; `useDesk` decides between the screen and the
   panel.
@@ -602,7 +607,8 @@ with `[Learn more](feature:<slug>)`.
 - **One screen, and the glass is the whole of it.** There are no tabs, no
   sidebar, no drawer and no bar over the glass: the cog floats in the corner
   and opens Settings, which is a screen on the phone and a panel on the desk,
-  and that is the entire navigation. A new _action_ is a gesture on the glass
+  and that is the entire navigation. (The one other glyph is a new version's,
+  beside the cog and only while one waits — `UpdateGlyph.tsx`.) A new _action_ is a gesture on the glass
   or a row in Settings, never a button beside the glass.
 - **The glass is the switch, and the whole glass.** A tap anywhere on the
   hourglass turns it over. A drag on it sets the length. Do not add a start

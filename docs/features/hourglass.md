@@ -36,6 +36,10 @@ The screen, and the whole app.
   out of its corner and back in at the opposite one — the top right as the
   phone is now held — turned to read the right way up; the length, while it
   shows, moves and turns the same way.
+- **A new version**, on the website: when one has landed, a small circling
+  arrow beside the cog, as quiet as the cog is. Tap it and the page reloads
+  onto the new version with the sand where it was. Settings → About can
+  check now instead of waiting.
 
 ## What a gesture does
 

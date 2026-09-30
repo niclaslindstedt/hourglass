@@ -9,7 +9,8 @@ index.html
        └── src/App.tsx        theme, settings, the run, the sensor, the wake lock, the place, the cog
             ├── Hourglass         the glass and its sky — the whole screen, every gesture on it, and the phone's readings
             ├── TopBar            the bar the phone's Settings screen sits under (never over the glass)
-            ├── SettingsScreen    settings, developer tools, about — a screen on the phone
+            ├── UpdateGlyph       a new version, as a glyph beside the cog (the website only)
+            ├── SettingsScreen    settings, developer tools, about and its update check — a screen on the phone
             └── SidePanel         the same on the desk, over the right-hand edge
 
 src/app/
@@ -41,6 +42,8 @@ src/app/
   useAppSettings.ts the settings blob, clamped on read
   shape.ts          phone or desk — the one edge the shell is cut at
   useShape.ts       the same, live: useDesk
+  UpdateGlyph.tsx   the glyph beside the cog when a new version has landed; a tap reloads onto it
+  UpdateCheck.tsx   About's "Check for updates", and the reload once one is found
   appName.ts        the name the app shows: the listing's in an app build, Hourglass on the website
   dev/              the demo run (VITE_SEED=demo): a glass part way through a half hour
   i18n/             the catalog and the runtime
@@ -62,7 +65,7 @@ tauri/              the thin desktop shell — a Rust project (see below)
 
 [`@niclaslindstedt/oss-framework`](https://github.com/niclaslindstedt/oss-framework)
 supplies the UI kit (the settings layout and its sections, toggles and
-choices, the toast viewport, the update toast), the theme engine, the
+choices, the toast viewport), the theme engine, the
 local-storage state hook, the i18n runtime, the log store and viewer, and the
 PWA update state machine. The app imports only published subpaths.
 
@@ -130,7 +133,13 @@ up the phone is changes.
 
 `pwa-plugin.ts` emits `sw.js`, `version.json`, `precache-manifest.json` and
 the web manifest at build time — a "prompt to update" worker that precaches
-the build, parks in `waiting`, and applies on the framework's `UpdateToast`.
+the build, parks in `waiting`, and applies when asked. The framework's
+`usePwaUpdate` looks for one by itself — on start, hourly, and when the tab
+comes back — and the app says so the way it says everything else: a glyph
+beside the cog (`UpdateGlyph.tsx`), never a banner over the glass. A tap on
+it reloads onto the new build, and the sand is where it was, because the run
+is read off the wall clock. Settings → About can ask now rather than wait
+(`UpdateCheck.tsx`).
 Per deploy base (`/`, `/preview/`) the cache id (`src/app/pwa.ts`) and the
 manifest identity differ, so the channels install as separate apps.
 
