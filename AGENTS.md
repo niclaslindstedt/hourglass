@@ -126,7 +126,7 @@ same shared surface behind the sibling `time`, `contacts` and `period` apps.
 
 The framework owns the UI kit and the generic mechanics: the settings layout
 and its controls, the theme engine, the local-storage state hook, the i18n
-runtime, logging, the toast store, and the PWA update state machine. What
+runtime, logging, and the PWA update state machine. What
 stays here is the hourglass: what a glass is made of, how sand rests and
 runs, how the picture is painted, and what a press and a turn mean.
 
@@ -212,8 +212,11 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
 - `src/app/view.ts` — how the glass hangs in the phone: a spring-damper
   **lag** kicked by the phone's change of spin (a few degrees, swings back
   past centre and settles) and the finger's **orbit** about the glass's own
-  axis (spins on, eases back to face the viewer); `intoGlass` takes gravity
-  into the glass's frame; `swing` is a desk's shake. Pure and clock-free.
+  axis (spins on, eases back to face the viewer); `follow` eases what the
+  glass feels of the phone (gravity, the push, the spin, its stance in the
+  world as a quaternion) toward each reading, so the sensor's tremor never
+  reaches the picture; `intoGlass` takes gravity into the glass's frame;
+  `swing` is a desk's shake. Pure and clock-free.
 - `src/app/astronomy.ts` — the sun's and the moon's positions and the
   moon's phase (the standard low-precision formulas, as suncalc has them),
   clear-sky illuminance by the sun's altitude and the moon's by altitude and
@@ -325,6 +328,12 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   a glyph floats beside the cog (turning corners with it) that reloads onto
   it; About in Settings checks now. The website only — a shell build updates
   by being replaced — and never a banner over the glass.
+- `src/app/upright.ts` — the page never turns with the screen: on a
+  touch screen whose browser rotated it, `#root` is turned back
+  (`data-turned` on `<html>`, `styles.css`, with the safe-area insets turned
+  as `--safe-*`) and a drag read in the page's frame (`uprightDelta`); the
+  apps lock their windows to portrait, the right way up. Tested in
+  `tests/upright_test.ts`.
 - `src/app/shape.ts` / `useShape.ts` — phone or desk, the one thing the
   shell asks about a window; `useDesk` decides between the screen and the
   panel.
@@ -625,6 +634,10 @@ with `[Learn more](feature:<slug>)`.
   does — by how much sand is left — and the only figure on the screen is the
   length, shown for a moment when it changes. A countdown ticking beside the
   glass is the thing this app is built not to be.
+- **No toasts.** Nothing pops up over the glass to say what it already
+  shows: the sand running out is an empty bulb, a soft light and a buzz,
+  and a new version is the glyph beside the cog. The framework's toast
+  viewport is not mounted.
 - **The size is the length.** A longer glass is a bigger glass (`sizeFor`),
   and nothing else about the layout moves: the glass is centred and the room
   it takes is the only thing a length changes.

@@ -95,6 +95,15 @@ export const SCREENS = {
       await h.settle(2500);
     },
   },
+  "sky-up": {
+    label: "Held up to the sky",
+    // Tilted back to look up past the glass: the pose that shows what the
+    // glass's waist mirrors of the land under the horizon.
+    async stage(page, h) {
+      await hold(page, h, 126, 0);
+      await h.settle(2500);
+    },
+  },
   "turned-left": {
     label: "Phone turned left 90°",
     async stage(page, h) {
@@ -148,7 +157,7 @@ export const SCREENS = {
 export const SCREEN_SETS = {
   default: ["glass", "full", "done", "upside", "lean-right", "lean-back"],
   states: ["full", "glass", "done"],
-  sensors: ["upside", "lean-right", "lean-back", "flat", "shake"],
+  sensors: ["upside", "lean-right", "lean-back", "flat", "shake", "sky-up"],
   turn: ["turning", "turned", "upside"],
   around: ["glass", "turned-left", "turned-right", "lean-back"],
   all: Object.keys(SCREENS),

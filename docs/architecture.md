@@ -20,7 +20,7 @@ src/app/
   physics.ts        the sand in motion: the flowing layer, the grains in the air, a toss,
                     a turn-over, the hits on the glass and the buzz they make               (pure, clock-free)
   timer.ts          how long a glass runs, how big it is, and where a run stands           (pure, clock-free)
-  view.ts           how the glass hangs in the phone: the lag, the finger's orbit          (pure, clock-free)
+  view.ts           how the glass hangs in the phone: the lag, the finger's orbit, the eased follow   (pure, clock-free)
   astronomy.ts      where the sun and the moon stand, the moon's phase, their light; a time zone's place (pure)
   zones.ts          every IANA time zone's city, lat/lon — generated from the tz database's zone.tab
   sky.ts            the sky's colours and lights for the sun and the moon; now / day / dusk / night (pure)
@@ -41,6 +41,7 @@ src/app/
   useRun.ts         the run, persisted per device
   useAppSettings.ts the settings blob, clamped on read
   shape.ts          phone or desk — the one edge the shell is cut at
+  upright.ts        the page never turns with the screen: turned back on a phone
   useShape.ts       the same, live: useDesk
   UpdateGlyph.tsx   the glyph beside the cog when a new version has landed; a tap reloads onto it
   UpdateCheck.tsx   About's "Check for updates", and the reload once one is found
@@ -65,7 +66,7 @@ tauri/              the thin desktop shell — a Rust project (see below)
 
 [`@niclaslindstedt/oss-framework`](https://github.com/niclaslindstedt/oss-framework)
 supplies the UI kit (the settings layout and its sections, toggles and
-choices, the toast viewport), the theme engine, the
+choices), the theme engine, the
 local-storage state hook, the i18n runtime, the log store and viewer, and the
 PWA update state machine. The app imports only published subpaths.
 

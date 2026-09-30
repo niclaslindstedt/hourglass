@@ -47,12 +47,12 @@ single frame (`--scale 2`) when a grain, a glint or an edge needs judging.
 
 ## What varies
 
-| Axis      | Values                                                                                                                                                                                                                             | Default                |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `device`  | `phone` 440×956 · `phone-small` 375×667 · `phone-landscape` · `tablet-mini` · `tablet` · `tablet-landscape` · `desktop` 1440×900 · `desktop-small` · `desktop-wide`                                                                | `phone,tablet,desktop` |
-| `theme`   | `dark` · `light` · `system-light` · `system-dark` (sets: `both`, `all`) — Settings' and the cog's; the glass fills the screen with its sky either way                                                                              | `dark`                 |
-| `variant` | `default` (the default preset on a fixed day sky) · a preset id (`study` … `treasure`) · `sky-day` · `sky-dusk` · `sky-night` · `sky-now` · `one-minute` · `two-hours` · `dev` (sets: `presets`, `skies`, `sizes`, `all`)          | `default`              |
-| `screen`  | `glass` (running) · `full` · `done` · `turning` · `turned` · `upside` · `lean-right` · `lean-back` · `flat` · `shake` · `orbit` · `turned-left` · `turned-right` · `settings` (sets: `states`, `sensors`, `turn`, `around`, `all`) | `default` set          |
+| Axis      | Values                                                                                                                                                                                                                                        | Default                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `device`  | `phone` 440×956 · `phone-small` 375×667 · `phone-landscape` · `tablet-mini` · `tablet` · `tablet-landscape` · `desktop` 1440×900 · `desktop-small` · `desktop-wide`                                                                           | `phone,tablet,desktop` |
+| `theme`   | `dark` · `light` · `system-light` · `system-dark` (sets: `both`, `all`) — Settings' and the cog's; the glass fills the screen with its sky either way                                                                                         | `dark`                 |
+| `variant` | `default` (the default preset on a fixed day sky) · a preset id (`study` … `treasure`) · `sky-day` · `sky-dusk` · `sky-night` · `sky-now` · `one-minute` · `two-hours` · `dev` (sets: `presets`, `skies`, `sizes`, `all`)                     | `default`              |
+| `screen`  | `glass` (running) · `full` · `done` · `turning` · `turned` · `upside` · `lean-right` · `lean-back` · `flat` · `shake` · `orbit` · `turned-left` · `turned-right` · `sky-up` · `settings` (sets: `states`, `sensors`, `turn`, `around`, `all`) | `default` set          |
 
 `--state full|running|done` and `--at <fraction>` set the run every frame
 opens on (default running, 0.42 of the way). `sky-now` draws the sky at the

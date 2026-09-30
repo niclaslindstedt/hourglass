@@ -46,7 +46,7 @@ export function UpdateGlyph({ ready, upside, shown, onReload }: Props) {
         aria-label={label}
         aria-busy={reloading}
         title={label}
-        className={`app-update-glyph absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-[opacity,background-color,color] duration-200 hover:bg-white/10 hover:text-white ${
+        className={`app-update-glyph absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-white/75 hover:bg-white/10 hover:text-white ${
           upside ? "app-update-glyph-upside rotate-180" : ""
         } ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >

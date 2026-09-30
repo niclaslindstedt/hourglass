@@ -35,7 +35,6 @@ export const en = {
     minutes: "{n} min",
     hours: "{n} h",
     hoursMinutes: "{h} h {m} min",
-    done: "The sand has run out",
   },
 
   // A new version: the glyph beside the cog, and About's check.

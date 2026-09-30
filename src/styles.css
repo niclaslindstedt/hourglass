@@ -33,26 +33,6 @@
   letter-spacing: -0.01em;
 }
 
-/* ── Toasts ──────────────────────────────────────────────────────────────
-   Both kinds wear the app's own colours; the difference is loudness. */
-.app-toasts [data-kind="success"] {
-  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-  background-color: color-mix(in oklab, var(--accent) 12%, var(--surface-2));
-}
-
-.app-toasts [data-kind="success"] > span[aria-hidden="true"] {
-  background-color: var(--accent);
-}
-
-.app-toasts [data-kind="danger"] {
-  border-color: var(--danger);
-  background-color: color-mix(in oklab, var(--danger) 32%, var(--surface-2));
-}
-
-.app-toasts [data-kind="danger"] > span[aria-hidden="true"] {
-  background-color: var(--danger);
-}
-
 /* ── Pointer affordance ──────────────────────────────────────────────────
    Tailwind v4's preflight stopped restoring `cursor: pointer` on buttons. */
 button,
@@ -105,23 +85,85 @@ body {
   }
 }
 
+/* ── Standing tall ───────────────────────────────────────────────────────
+   The page never turns with the screen (`upright.ts`): on a phone whose
+   browser has rotated it, `#root` is turned back the other way and sized to
+   the screen's other sides, so it stands where the phone's own frame has
+   it. The safe-area insets are read through these, turned with it — the
+   notch that the browser calls the left is the page's top. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+html[data-turned] #root {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+html[data-turned="180"] #root {
+  width: 100dvw;
+  rotate: 180deg;
+  --safe-top: env(safe-area-inset-bottom, 0px);
+  --safe-right: env(safe-area-inset-left, 0px);
+  --safe-bottom: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-right, 0px);
+}
+
+html[data-turned="90"] #root,
+html[data-turned="270"] #root {
+  width: 100dvh;
+  height: 100dvw;
+}
+
+html[data-turned="90"] #root {
+  rotate: 90deg;
+  --safe-top: env(safe-area-inset-right, 0px);
+  --safe-right: env(safe-area-inset-bottom, 0px);
+  --safe-bottom: env(safe-area-inset-left, 0px);
+  --safe-left: env(safe-area-inset-top, 0px);
+}
+
+html[data-turned="270"] #root {
+  rotate: 270deg;
+  --safe-top: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-right, 0px);
+  --safe-left: env(safe-area-inset-bottom, 0px);
+}
+
 /* The header pads down from the status bar: the larger of its own padding
    and the inset, so an installed PWA paints edge to edge. */
 .app-header {
-  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-top: max(0.75rem, var(--safe-top));
 }
 
 /* The glass has no bar over it and pads down from the status bar itself,
    and up from the home indicator. */
 .app-bare {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
 }
 
-/* The cog floats in the top right corner of the screen, clear of the notch. */
+/* The cog floats in the top right corner of the screen, clear of the notch.
+   When the phone is turned over it changes corners by fading — out slowly,
+   and slowly back in at the other (`CORNER_FADE_MS` in `App.tsx`) — quiet
+   enough to be barely seen; nothing else on the screen turns. */
+.app-cog,
+.app-update-glyph {
+  transition:
+    opacity 650ms ease-in-out,
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
 .app-cog {
-  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
-  right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
+  top: calc(var(--safe-top) + 0.5rem);
+  right: calc(var(--safe-right) + 0.5rem);
 }
 
 /* The phone held upside down: the cog in the corner that is now the top
@@ -129,24 +171,24 @@ body {
 .app-cog.app-cog-upside {
   top: auto;
   right: auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
-  left: calc(env(safe-area-inset-left, 0px) + 0.5rem);
+  bottom: calc(var(--safe-bottom) + 0.5rem);
+  left: calc(var(--safe-left) + 0.5rem);
 }
 
 /* A new version: a glyph beside the cog, one cog's width further in, and in
    the other corner with it when the phone is upside down (`UpdateGlyph`). It
    fades in rather than arriving, because nothing about it is urgent. */
 .app-update-glyph {
-  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
-  right: calc(env(safe-area-inset-right, 0px) + 3rem);
+  top: calc(var(--safe-top) + 0.5rem);
+  right: calc(var(--safe-right) + 3rem);
   animation: app-update-in 900ms ease-out;
 }
 
 .app-update-glyph.app-update-glyph-upside {
   top: auto;
   right: auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
-  left: calc(env(safe-area-inset-left, 0px) + 3rem);
+  bottom: calc(var(--safe-bottom) + 0.5rem);
+  left: calc(var(--safe-left) + 3rem);
 }
 
 @keyframes app-update-in {

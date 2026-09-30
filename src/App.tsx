@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  CogIcon,
-  ToastViewport,
-  createToastStore,
-} from "@niclaslindstedt/oss-framework/components";
+import { CogIcon } from "@niclaslindstedt/oss-framework/components";
 import { usePwaUpdate } from "@niclaslindstedt/oss-framework/pwa";
 import { useApplyTheme } from "@niclaslindstedt/oss-framework/theme";
 
@@ -21,6 +17,7 @@ import { SidePanel } from "./app/SidePanel.tsx";
 import { newRun, type Run } from "./app/timer.ts";
 import { TopBar } from "./app/TopBar.tsx";
 import { UpdateGlyph } from "./app/UpdateGlyph.tsx";
+import { useUpright } from "./app/upright.ts";
 import { useAppSettings, type AppSettings } from "./app/useAppSettings.ts";
 import {
   motionNeedsPermission,
@@ -40,12 +37,15 @@ import { status } from "./output.ts";
 // slides in over the right-hand edge, so the glass in the middle changes
 // as a frame or a sand is picked.
 
-// Module-scoped so the identity stays stable across renders (the framework's
-// `useToasts` keys its subscription on the store object).
-const toasts = createToastStore();
+/** How long the cog takes to fade out of one corner, before it fades into
+ *  the other — `.app-cog`'s opacity transition in `styles.css`. Slow and
+ *  soft, so the move is barely noticed. */
+const CORNER_FADE_MS = 650;
 
 export function App() {
   const t = useT();
+  // The page never turns with the screen: the phone is the glass.
+  useUpright();
   const stored = useAppSettings();
   // The demo holds its own settings in memory, so nothing on the device is
   // read or written while it shows.
@@ -128,7 +128,7 @@ export function App() {
     const id = window.setTimeout(() => {
       setCogUpside(upside);
       setCogShown(true);
-    }, 260);
+    }, CORNER_FADE_MS);
     return () => window.clearTimeout(id);
   }, [upside, cogUpside]);
 
@@ -157,7 +157,8 @@ export function App() {
   }, [settings.captureLogs]);
 
   // The sand has run out: a buzz, where the device can and the setting
-  // allows, and the run laid to rest.
+  // allows, and the run laid to rest. No notice over the glass — the empty
+  // bulb says it, the way a real one does.
   const onDone = useCallback(() => {
     persisted.finish();
     if (settings.vibrate && "vibrate" in navigator) {
@@ -167,13 +168,7 @@ export function App() {
         // A device that will not.
       }
     }
-    toasts.clear();
-    toasts.push({
-      message: t("timer.done"),
-      kind: "success",
-      durationMs: 4000,
-    });
-  }, [persisted, settings.vibrate, t]);
+  }, [persisted, settings.vibrate]);
 
   // The screen stays on while the sand runs, where the setting allows and
   // the browser has a wake lock to give. Released when the run ends — a run
@@ -268,7 +263,7 @@ export function App() {
               aria-label={t("nav.settings")}
               aria-expanded={desk ? settingsOpen : undefined}
               title={t("nav.settings")}
-              className={`app-cog absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-[opacity,background-color,color] duration-200 hover:bg-white/10 hover:text-white ${
+              className={`app-cog absolute z-40 flex h-10 w-10 items-center justify-center rounded-full text-white/75 hover:bg-white/10 hover:text-white ${
                 cogUpside ? "app-cog-upside rotate-180" : ""
               } ${cogShown ? "opacity-100" : "pointer-events-none opacity-0"} ${
                 desk && settingsOpen ? "bg-accent/15 text-accent" : ""
@@ -293,14 +288,6 @@ export function App() {
           </SidePanel>
         )}
       </main>
-
-      {/* Top, not the framework's default bottom: the bottom of the screen
-          is where a thumb rests on the glass. */}
-      <ToastViewport
-        store={toasts}
-        labels={{ dismiss: t("common.close") }}
-        className="app-toasts pointer-events-none fixed inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))]"
-      />
     </div>
   );
 }
