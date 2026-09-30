@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+#
+# THE DECISIONS. Nothing in this crate opens, draws or talks to anything, and
+# it depends on no GUI toolkit — which is what lets `cargo test -p hourglass-shell`
+# run on a runner with a Rust toolchain and nothing else. See ../Cargo.toml.
+
+[package]
+name = "hourglass-shell"
+description = "The decision layer behind the Hourglass desktop shell: where the bundled site is, and what one request off it resolves to."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The remembered window geometry is a small JSON file (`window_state`).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

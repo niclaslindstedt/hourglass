@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- The app's mark: an hourglass — two bars and two sides meeting at the
+       waist — drawn in flat green on the app's dark surface, the same
+       geometry scripts/generate-icons.mjs rasterises. -->
+  <rect width="100" height="100" rx="20" fill="#12101a"/>
+  <path d="M30 20h40M30 80h40M36 20v10c0 8 4 13 9 17l5 3-5 3c-5 4-9 9-9 17v10M64 20v10c0 8-4 13-9 17l-5 3 5 3c5 4 9 9 9 17v10" fill="none" stroke="#3ef07f" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 76l10-9 10 9z" fill="#3ef07f"/>
+</svg>

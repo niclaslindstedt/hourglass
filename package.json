@@ -1,0 +1,65 @@
+{
+  "name": "hourglass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first hourglass PWA built on @niclaslindstedt/oss-framework — a glass of sand you turn over with a tap, sized to the minutes you want. No account, no server.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Niclas Lindstedt <niclas@agilator.se>",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
+    "icons": "node scripts/generate-icons.mjs",
+    "blender": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/blender.mjs",
+    "tauri": "npm --prefix tauri run start",
+    "tauri:fast": "npm --prefix tauri run start:fast",
+    "tauri:bundle": "npm --prefix tauri run bundle",
+    "tauri:install": "npm --prefix tauri install",
+    "tauri:test": "npm --prefix tauri run test",
+    "tauri:lint": "npm --prefix tauri run lint",
+    "tauri:fmt": "npm --prefix tauri run fmt",
+    "tauri:fmt:check": "npm --prefix tauri run fmt:check",
+    "tauri:package": "npm run tauri:install && npm --prefix tauri run package --",
+    "tauri:package:debug": "npm run tauri:install && npm --prefix tauri run package:debug --",
+    "tauri:clean": "npm --prefix tauri run clean"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@niclaslindstedt/oss-framework": "^3.13.0",
+    "preact": "^10.29.8",
+    "workbox-window": "^7.4.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@preact/preset-vite": "^2.10.6",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.1",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "react": "npm:@preact/compat@^18.3.2",
+    "react-dom": "npm:@preact/compat@^18.3.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "fsevents": false
+  }
+}
