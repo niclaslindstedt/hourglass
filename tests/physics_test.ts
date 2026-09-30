@@ -4,17 +4,24 @@ import { describe, expect, it } from "vitest";
 import { bulbShape } from "../src/app/glass.ts";
 import { GLASS, SAND } from "../src/app/look.ts";
 import {
+  BETA,
+  G,
   airborne,
   buzzFor,
   frictionOf,
+  muFlow,
+  muStart,
+  muStop,
   moving,
   setGravity,
   step,
+  streamPath,
   turnOver,
   wallAt,
 } from "../src/app/physics.ts";
 import {
   capacity,
+  cellAt,
   createBulb,
   levelFill,
   pileFill,
@@ -204,5 +211,126 @@ describe("the buzz", () => {
     expect(buzzFor(0.02)).toBeGreaterThan(0);
     expect(buzzFor(1)).toBeGreaterThan(buzzFor(0.05));
     expect(buzzFor(1e6)).toBe(40);
+  });
+});
+
+describe("the stream", () => {
+  it("falls straight onto the apex of a glass standing upright", () => {
+    const sink = bulb("plate");
+    pileFill(sink, capacity(sink) * 0.3);
+    const path = streamPath(sink);
+    for (let k = 0; k < path.count; k++) {
+      expect(
+        Math.hypot(path.points[k * 3]!, path.points[k * 3 + 2]!),
+      ).toBeLessThan(1e-9);
+    }
+    expect(path.wall).toBe(path.count);
+    const [i, a] = cellAt(sink, path.landX, path.landZ);
+    expect(path.points[(path.count - 1) * 3 + 1]).toBeCloseTo(
+      sink.height[i * sink.m + a]!,
+      9,
+    );
+  });
+
+  it("tilted, meets the glass under the waist and runs down it to the heap, never through it", () => {
+    const sink = bulb("plate");
+    pileFill(sink, capacity(sink) * 0.3);
+    const t = (50 * Math.PI) / 180;
+    setGravity(sink, Math.sin(t), -Math.cos(t), 0);
+    const path = streamPath(sink);
+    expect(path.wall).toBeLessThan(path.count);
+    let last = Infinity;
+    for (let k = 0; k < path.count; k++) {
+      const x = path.points[k * 3]!;
+      const y = path.points[k * 3 + 1]!;
+      const z = path.points[k * 3 + 2]!;
+      // Inside the glass all the way, and always going down.
+      expect(Math.hypot(x, z)).toBeLessThanOrEqual(wallAt(sink, y) + 1e-9);
+      expect(y).toBeLessThanOrEqual(last + 1e-12);
+      last = y;
+      // Once on the glass it stays on it.
+      if (k >= path.wall) {
+        expect(Math.hypot(x, z)).toBeGreaterThan(wallAt(sink, y) * 0.9);
+      }
+    }
+    // It lands on the downhill side, at the heap.
+    expect(path.landX).toBeGreaterThan(0);
+    const [i, a] = cellAt(sink, path.landX, path.landZ);
+    expect(path.points[(path.count - 1) * 3 + 1]).toBeCloseTo(
+      sink.height[i * sink.m + a]!,
+      9,
+    );
+  });
+});
+
+describe("the friction law (Pouliquen and Forterre 2002)", () => {
+  const f = frictionOf(bulb("plate"));
+  const deg = (t: number) => (Math.atan(t) * 180) / Math.PI;
+
+  it("stops a thick layer at the sand's angle of repose, and starts it about a degree steeper", () => {
+    expect(deg(muStop(f, 1))).toBeCloseTo(REPOSE, 0);
+    const gap = deg(muStart(f, 1)) - deg(muStop(f, 1));
+    expect(gap).toBeGreaterThan(0.8);
+    expect(gap).toBeLessThan(1.6);
+  });
+
+  it("holds a thin layer steeper than a thick one", () => {
+    // A layer a grain or two deep (0.5 mm on a 22 cm glass) against 1 cm.
+    expect(muStop(f, 0.5e-3 / 0.22)).toBeGreaterThan(muStop(f, 1e-2 / 0.22));
+    expect(deg(muStop(f, 1e-9))).toBeCloseTo(REPOSE + 9.7, 0);
+  });
+
+  it("is continuous at the flow rule's edge and comes to the start friction at rest", () => {
+    const h = 0.01;
+    expect(muFlow(f, h, BETA)).toBeCloseTo(muStop(f, h), 9);
+    expect(muFlow(f, h, BETA * 1.0001)).toBeCloseTo(muStop(f, h), 4);
+    // Under β the paper carries it toward the start friction by a power
+    // γ = 10⁻³ — so slowly that it stays between the two until the flow
+    // has all but stopped; at standstill the start friction holds (eq.
+    // 3.7), which the flow applies as its static test.
+    const slow = muFlow(f, h, 1e-12);
+    expect(slow).toBeGreaterThan(muStop(f, h));
+    expect(slow).toBeLessThan(muStart(f, h));
+    // A faster flow meets more friction: it settles at a speed.
+    expect(muFlow(f, h, BETA * 4)).toBeGreaterThan(muFlow(f, h, BETA * 1.5));
+  });
+});
+
+describe("the stream's motion", () => {
+  it("falls from the bore in the time a free fall takes", () => {
+    const sink = bulb("plate");
+    pileFill(sink, capacity(sink) * 0.3);
+    const path = streamPath(sink);
+    const drop = shape.height - path.points[(path.count - 1) * 3 + 1]!;
+    // Leaving at √(g·D) and falling `drop`: v0·t + g·t²/2 = drop.
+    const v0 = Math.sqrt(G * 2 * shape.bore);
+    const t = (-v0 + Math.sqrt(v0 * v0 + 2 * G * drop)) / G;
+    expect(path.times[path.count - 1]!).toBeCloseTo(t, 2);
+    for (let k = 1; k < path.count; k++) {
+      expect(path.times[k]!).toBeGreaterThan(path.times[k - 1]!);
+    }
+  });
+
+  it("stops on the glass where friction holds it, and slides on where it does not", () => {
+    const t = (50 * Math.PI) / 180;
+    const sticky = bulb("plate");
+    pileFill(sticky, capacity(sticky) * 0.3);
+    setGravity(sticky, Math.sin(t), -Math.cos(t), 0);
+    // Friction no wall could slide against: the rivulet stops where it
+    // meets the glass, well above the heap.
+    const held = streamPath(sticky, 50);
+    const last = held.count - 1;
+    expect(held.wall).toBeLessThanOrEqual(last);
+    const [i, a] = cellAt(sticky, held.landX, held.landZ);
+    expect(held.points[last * 3 + 1]!).toBeGreaterThan(
+      sticky.height[i * sticky.m + a]! + 0.01,
+    );
+    // Sand on glass slides down to the heap.
+    const slid = streamPath(sticky);
+    const [j, b] = cellAt(sticky, slid.landX, slid.landZ);
+    expect(slid.points[(slid.count - 1) * 3 + 1]!).toBeCloseTo(
+      sticky.height[j * sticky.m + b]!,
+      9,
+    );
   });
 });

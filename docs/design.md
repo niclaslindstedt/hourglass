@@ -91,14 +91,27 @@ depth-averaged avalanche equations.
 **The dense layer** is the heap: the cells, and on them a thin flowing layer
 about fifteen grains deep (`LAYER`, a few millimetres on a desk glass) with
 momentum. Every edge between two cells carries a speed. Gravity along the
-slope drives it and Coulomb friction holds it back, with the two angles real
-sand has: an avalanche starts only where the slope passes the **static**
-angle — the sand's angle of repose plus two and a half degrees, as measured
-on dune slip faces — and once moving it runs until the slope is down to the
-**dynamic** one, the angle of repose itself. So the cone under the stream
-grows a little past its angle, lets go in a slump and stops a little flatter,
-the way a real one does; and a flat bed tilted by less than its static angle
-holds, as real sand does. Each sand has its own angle — glass beads flattest,
+slope drives it and basal friction holds it back — the friction law
+Pouliquen and Forterre measured on real layers of glass beads ("Friction law
+for dense granular flows", J. Fluid Mech. 2002):
+
+- a static layer starts to move only past its **start** angle, and a moving
+  one stops only below its **stop** angle, about a degree lower
+  (δ3 − δ1 = 22.2° − 21° in their fit);
+- both angles depend on how deep the layer is: a layer a few grains deep
+  stands steeper than a thick one, the excess fading over L = 0.65 mm
+  (δ2 − δ1 = 9.7° for a vanishing layer);
+- a moving layer's friction depends on its Froude number, u/√(gh): past
+  β = 0.136 it is the stop friction of the depth the flow rule
+  u/√(gh) = β·h/h_stop gives, so a faster flow meets more friction and a
+  flow settles at a speed; under β it is carried toward the start friction
+  by a power γ = 10⁻³.
+
+Each sand's own angle of repose stands for δ1 (it is measured on a heap, a
+thick layer) and the other angles keep the paper's distances from it. So
+the cone under the stream grows a little past its angle, lets go in a slump
+and stops a little flatter, the way a real one does; and a flat bed tilted
+by less than its start angle holds, as real sand does. Each sand has its own angle — glass beads flattest,
 black sand steepest — so the funnel and the cone are a different shape in
 every preset, and it is the only thing about the sand's behaviour a look
 changes. The rate, the amount and the clock are the same for all of them.
@@ -133,8 +146,21 @@ handed to both heaps (`setGravity`), which read their lean off it: to a side,
 the heaps slide that way; leaned back or forward, to the back or the front
 wall of the bulb. The lean is capped as a whole at seventy degrees, where a
 heap would stand against the wall and a heightfield cannot say so. The
-stream falls along gravity too, so at a slant it lands off the axis and the
-cone grows there.
+stream follows the grains (`streamPath`): they leave the bore at about
+√(g·D), falling freely from the "free-fall arch" that stands about a hole's
+width over an orifice, and fly under the gravity the glass feels. Upright,
+that is a straight thread onto the apex. Leaned, the thread bends toward
+gravity and meets the glass just under the waist. A dense granular jet
+that hits a surface turns along it, its speed into the surface spent
+(granular-jet impact experiments; Johnson and Gray's jets on an incline,
+J. Fluid Mech. 2011). So it runs down the inside of the wall as a rivulet,
+driven by gravity along the wall and held by Coulomb friction against the
+push into it (`WALL_FRICTION`, 0.2: dry glass beads on clear glass measure
+about 0.16, and sand's grains are a little rougher; on a smooth wall a
+constant friction describes a thin granular flow well). It speeds up where
+the wall is steep, and stops and piles where the wall is flatter than the
+friction angle. Where it reaches the heap is where `pour` lands the sand,
+so the cone grows at the heap's edge on the downhill side.
 
 Held on its **side**, past sixty degrees, the hole is no longer fed and the
 run halts, as a real glass on its side stops; stood up, it goes on from
@@ -277,7 +303,9 @@ line — which is the body of the sand pressed against the glass, what you
 see of sand from the side. Its surface is a speckle in the sand's colours
 with the photographed grain (`public/models/grain.png`, from the Blender
 pipeline's CC0 sand) as its bump; the grains in the air are points, and the
-stream is a thread from the waist with grains falling down it.
+stream is a tube along the path the grains take (`streamPath`), with grains
+moving down it at the traced pace — quickening through the air, sliding at
+the speed friction allows on the glass.
 
 ## The flat picture
 

@@ -173,7 +173,8 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   `setTilt` may lean across the bulb, so a tilted glass settles to a
   surface that leans with it — and `settle` running that to rest. `drain`
   takes sand from the axis of the upper bulb and `pour` lands it where the
-  stream falls in the lower (on the axis, or off it at a slant), which is
+  stream reaches the lower (on the axis, or at the end of its run down the
+  glass when it leans — `streamPath` in `physics.ts`), which is
   why the upper surface is a funnel and the lower a cone; `jolt` is a
   shake, grains thrown cell to cell, and `give` how much flatter a shaken
   heap holds; `levelFill`, `pileFill` and `funnelFill` put a volume in at
@@ -191,10 +192,15 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   "shallow sand" height-field models and Savage–Hutter's depth-averaged
   avalanche equations). The dense layer is the heap's cells plus a flowing
   layer (`LAYER`, about fifteen grains deep) with a speed on every edge
-  between cells: gravity along the slope drives it, Coulomb friction holds
-  it, an avalanche starts past the **static** angle (repose + 2.5°,
-  `STATIC_EXTRA`) and stops at the **dynamic** one (the sand's repose), and
-  a shaken heap's friction drops (`give`). The dilute layer is grains in the
+  between cells: gravity along the slope drives it and Pouliquen and
+  Forterre's measured friction law holds it (`muStart`, `muStop`,
+  `muFlow`: start and stop angles about a degree apart, both steeper for a
+  thin layer, friction rising with the Froude number), with the sand's
+  angle of repose as the law's δ1; a shaken heap's friction drops (`give`).
+  `streamPath` traces the stream: out of the bore at √(g·D), a projectile
+  through the air, and on meeting the glass a rivulet down the inside of
+  the wall under Coulomb wall friction (`WALL_FRICTION`) to the heap, where
+  `pour` lands the sand. The dilute layer is grains in the
   air (`Bulb.air`, up to `AIR_CAP`), ballistic under the gravity the glass
   feels (`setGravity`: the Earth's less the phone's own acceleration),
   bouncing off the wall and landing volume-exactly; `toss` throws them up
@@ -388,8 +394,9 @@ do not add a third path.
 ### The phone is the glass
 
 Held at a slant — to a side, or leaned back or forward — the heaps lean into
-it toward that side, or the back or the front wall, and the stream falls at
-that slant (`setGravity` in `physics.ts`, and `pour` off the axis); held on
+it toward that side, or the back or the front wall, and the stream bends
+into the slant, meets the glass and runs down it to the heap (`setGravity`
+and `streamPath` in `physics.ts`, and `pour` where it lands); held on
 its side, the hole is not fed and the run halts (`STOP_LEAN` on the lean's
 x, `halt`, `resume`) — a real one stops too. A phone laid flat on a table
 leans its sand the full way to the back of the bulb and goes on running: the
@@ -534,8 +541,9 @@ A change to the sand, its physics, the sky or the timer without a test that
 pins the new behaviour at real volumes, real angles or real moments is not
 finished. The sand tests measure a heap's volume against what was put in
 (`HAIR`, a fraction of a percent) and its steepest slope against the sand's
-angle of repose; the physics tests hold a flowing heap between its static
-and dynamic angles, grains in the air to the volume they left, and the buzz
+angle of repose; the physics tests hold a flowing heap between its start
+and stop angles, pin the friction law's properties and the stream's fall
+time and slide, grains in the air to the volume they left, and the buzz
 to the hits; the sky tests pin the sun and the moon at known places and
 moments. `physics.ts`, `view.ts`, `sky.ts` and `astronomy.ts` are clock-free
 like the rest: `dt`, `now` and the place are parameters. UI changes should keep

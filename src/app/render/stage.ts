@@ -3,8 +3,8 @@ import * as THREE from "three";
 
 import type { Layout } from "../glass.ts";
 import { SAND, type Look } from "../look.ts";
-import { airborne, wallAt } from "../physics.ts";
-import { axisHeight, cellAt, type Bulb } from "../sand.ts";
+import { airborne, streamPath, wallAt, type StreamPath } from "../physics.ts";
+import type { Bulb } from "../sand.ts";
 import {
   rimHeights,
   surfaceIndex,
@@ -69,6 +69,9 @@ export type StageFrame = {
   flow: number;
   /** The light behind the glass once the sand has run out, 0..1. */
   glow: number;
+  /** The stream's path this frame (`streamPath`), when the loop has traced
+   *  it already; traced here otherwise. */
+  stream?: StreamPath | null;
 };
 
 /** The camera's field of view, degrees, and its distance from the waist. */
@@ -211,6 +214,7 @@ export class Stage {
   private stream: THREE.Mesh | null = null;
   private streamGrains: THREE.Points | null = null;
   private streamPositions = new Float32Array(STREAM_GRAINS * 3);
+  private streamKey = "";
   private sandMaterials: THREE.Material[] = [];
   private dot = dotTexture();
   private basis = new THREE.Matrix4();
@@ -363,10 +367,8 @@ export class Stage {
       color: new THREE.Color(SAND[look.sand].color),
       roughness: 1,
     });
-    this.stream = new THREE.Mesh(
-      new THREE.CylinderGeometry(1, 1, 1, 12, 1, true),
-      streamMaterial,
-    );
+    this.stream = new THREE.Mesh(new THREE.BufferGeometry(), streamMaterial);
+    this.streamKey = "";
     this.stream.frustumCulled = false;
     const sg = new THREE.BufferGeometry();
     sg.setAttribute(
@@ -549,58 +551,87 @@ export class Stage {
     view.air.visible = air.count > 0 && airborne(bulb) > 0;
   }
 
-  /** The stream, in the sink's frame: from the waist, falling along its
-   *  lean to the heap under it. */
+  /** The stream, in the sink's frame, along the path it takes
+   *  (`streamPath`): out of the bore, down through the air, and — when the
+   *  glass leans — onto the glass and down the inside of it to the heap. A
+   *  tube along the path, rebuilt when the path moves, and grains running
+   *  down it: falling faster and faster through the air, sliding at an
+   *  even pace down the glass. */
   private drawStream(frame: StageFrame): void {
     const stream = this.stream;
     const grains = this.streamGrains;
     if (!stream || !grains) return;
-    const sink = frame.sink;
-    const B = frame.layout.bulb.height;
     const on = frame.flow > 0;
     stream.visible = on;
     grains.visible = on;
     if (!on) return;
-    const [tx, tz] = sink.tilt;
-    let fall = B - axisHeight(sink);
-    let land = axisHeight(sink);
-    for (let k = 0; k < 2; k++) {
-      const [i, a] = cellAt(sink, tx * fall, tz * fall);
-      land = sink.height[i * sink.m + a]!;
-      fall = Math.max(0.01, B - land);
-    }
-    const top = new THREE.Vector3(0, B, 0);
-    // It lands inside the glass, however hard the glass is jerked.
-    let ex = tx * fall;
-    let ez = tz * fall;
-    const reach = Math.hypot(ex, ez);
-    const room = wallAt(sink, land) * 0.85;
-    if (reach > room) {
-      ex *= room / reach;
-      ez *= room / reach;
-    }
-    const end = new THREE.Vector3(ex, land, ez);
-    const along = end.clone().sub(top);
-    const length = along.length();
+    const path = frame.stream ?? streamPath(frame.sink);
+    if (path.count < 2) return;
     const r = frame.layout.bulb.bore * 1.1;
-    stream.position.copy(top).addScaledVector(along, 0.5);
-    stream.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      along.clone().normalize(),
-    );
-    stream.scale.set(r, length, r);
-    // The grains in free fall down it, each at its own phase.
-    const period = 0.35;
-    for (let k = 0; k < STREAM_GRAINS; k++) {
+    const key = pathKey(path);
+    if (key !== this.streamKey) {
+      this.streamKey = key;
+      const points: THREE.Vector3[] = [];
+      // A point every few steps is plenty for the curve through them.
+      const every = Math.max(1, Math.floor(path.count / 48));
+      for (let k = 0; k < path.count; k += every) {
+        points.push(
+          new THREE.Vector3(
+            path.points[k * 3]!,
+            path.points[k * 3 + 1]!,
+            path.points[k * 3 + 2]!,
+          ),
+        );
+      }
+      const last = path.count - 1;
+      points.push(
+        new THREE.Vector3(
+          path.points[last * 3]!,
+          path.points[last * 3 + 1]!,
+          path.points[last * 3 + 2]!,
+        ),
+      );
+      if (points.length < 2) points.push(points[0]!.clone());
+      const curve = new THREE.CatmullRomCurve3(points, false, "centripetal");
+      stream.geometry.dispose();
+      stream.geometry = new THREE.TubeGeometry(
+        curve,
+        Math.min(96, Math.max(8, points.length * 2)),
+        r,
+        8,
+        false,
+      );
+    }
+    // The grains down it, each where the traced motion has a grain at its
+    // own moment of the trip: quickening through the air, sliding at the
+    // pace friction allows on the glass.
+    const { points, times, count } = path;
+    const trip = Math.max(1e-3, times[count - 1]!);
+    let j = 0;
+    const order = Array.from({ length: STREAM_GRAINS }, (_, k) => {
       const phase = (k * 0.618034) % 1;
-      const u = (frame.seconds / period + phase) % 1;
-      const d = u * u;
-      const spread = r * (1 + 2.5 * u);
-      const jx = Math.sin(k * 12.9898 + frame.seconds * 3) * 0.5 * spread;
-      const jz = Math.cos(k * 78.233 + frame.seconds * 2) * 0.5 * spread;
-      this.streamPositions[k * 3] = top.x + along.x * d + jx;
-      this.streamPositions[k * 3 + 1] = top.y + along.y * d;
-      this.streamPositions[k * 3 + 2] = top.z + along.z * d + jz;
+      return { k, at: ((frame.seconds / trip + phase) % 1) * trip };
+    }).sort((p, q) => p.at - q.at);
+    for (const { k, at } of order) {
+      while (j < count - 2 && times[j + 1]! < at) j++;
+      const t0 = times[j]!;
+      const t1 = times[j + 1] ?? t0;
+      const u = t1 > t0 ? Math.min(1, (at - t0) / (t1 - t0)) : 0;
+      const x = points[j * 3]! + (points[(j + 1) * 3]! - points[j * 3]!) * u;
+      const y =
+        points[j * 3 + 1]! +
+        (points[(j + 1) * 3 + 1]! - points[j * 3 + 1]!) * u;
+      const z =
+        points[j * 3 + 2]! +
+        (points[(j + 1) * 3 + 2]! - points[j * 3 + 2]!) * u;
+      // In the air a falling stream spreads a little; on the glass it
+      // is a rivulet pressed to the wall.
+      const spread = j < path.wall ? r * (1 + 2 * (at / trip)) : r * 0.6;
+      this.streamPositions[k * 3] =
+        x + Math.sin(k * 12.9898 + frame.seconds * 3) * 0.5 * spread;
+      this.streamPositions[k * 3 + 1] = y;
+      this.streamPositions[k * 3 + 2] =
+        z + Math.cos(k * 78.233 + frame.seconds * 2) * 0.5 * spread;
     }
     grains.geometry.attributes.position!.needsUpdate = true;
   }
@@ -615,6 +646,17 @@ export class Stage {
     this.dot.dispose();
     this.renderer.dispose();
   }
+}
+
+/** A path's shape, coarsely: the tube is rebuilt only when it moves by
+ *  more than a hair. */
+function pathKey(path: StreamPath): string {
+  const q = (v: number) => Math.round(v * 400);
+  const last = path.count - 1;
+  const mid = Math.floor(path.wall);
+  const at = (k: number) =>
+    `${q(path.points[k * 3]!)},${q(path.points[k * 3 + 1]!)},${q(path.points[k * 3 + 2]!)}`;
+  return `${path.count}|${at(Math.min(mid, last))}|${at(last)}`;
 }
 
 /** An upright phone facing the default heading, as a device-to-Earth

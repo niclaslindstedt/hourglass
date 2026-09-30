@@ -11,11 +11,12 @@ import {
   moving,
   setGravity,
   step as stepSand,
+  streamPath,
   turnOver,
+  type StreamPath,
 } from "./physics.ts";
 import { Stage } from "./render/stage.ts";
 import {
-  axisHeight,
   capacity,
   createBulb,
   drain,
@@ -359,14 +360,17 @@ export function Hourglass({
 
     // The clock: the top drained to what it says has passed, and the same
     // sand poured where the stream lands.
+    let stream: StreamPath | null = null;
     if (!s.flip) {
       const f = passed(s.run, now);
       const target = s.sand * (1 - f);
       const d = volume(s.source) + airborne(s.source) - target;
       if (d > 1e-9) {
-        const fall = s.layout.bulb.height - axisHeight(s.sink);
-        const [tx, tz] = s.sink.tilt;
-        pour(s.sink, drain(s.source, d), tx * fall, tz * fall);
+        // It lands where the stream reaches the heap: under the bore when
+        // the glass stands straight, at the end of its run down the glass
+        // when it leans.
+        stream = streamPath(s.sink);
+        pour(s.sink, drain(s.source, d), stream.landX, stream.landZ);
         // A big jump — the tab was asleep — settles at once.
         if (d > s.sand * 0.01) {
           settle(s.source);
@@ -436,6 +440,7 @@ export function Hourglass({
         size: share,
         flow: running && !s.stopped ? 1 : 0,
         glow: s.glow,
+        stream,
       });
     } else {
       paintFlat(el, s, w, h, dpr, flipAngle, share, running, seconds);

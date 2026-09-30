@@ -67,8 +67,10 @@ The screen, and the whole app.
   every jolt.
 - **Tilt the phone** and the sand leans with it — to either side, or, leaned
   back or forward, to the back or the front of the bulb: the heaps slide
-  that way, and the stream falls at the slant and lands off the middle,
-  where the cone then grows. The view turns too, like a window: the horizon
+  that way. The stream bends toward the slant, meets the glass just under
+  the waist, and runs down the inside of it as a rivulet — as sand on glass
+  does — to the heap's edge on the downhill side, where the cone then
+  grows. The view turns too, like a window: the horizon
   behind the glass stays level with the real one, and the sun and the moon
   stay where they are outside. Past sixty degrees to a side — the glass on
   its side — the hole is no longer fed and the sand stops; stand it up and
