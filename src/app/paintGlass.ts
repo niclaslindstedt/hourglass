@@ -119,12 +119,12 @@ export function paintGlassFront(
   if (sp?.glassMultiply && sp.glassAdd) {
     // The modelled glass, in its two passes: what the glass takes away —
     // its rim, the thick of the waist, the Fresnel darkening where the
-    // wall turns edge on — multiplied over what is behind it, and the
-    // light on it added over that. Both are neutral where the glass is
-    // not, so neither needs a clip; and both hold on a light page as on
-    // a dark one, since one only darkens and the other only lightens.
+    // wall turns edge on — as black over what is behind it, and the light
+    // on it added over that. Both are clear where the glass is not
+    // (`glassLayer`), so neither needs a clip; and both hold on a light
+    // page as on a dark one — and over a card with nothing painted behind
+    // the glass — since one only darkens and the other only lightens.
     ctx.save();
-    ctx.globalCompositeOperation = "multiply";
     drawSprite(ctx, cam, sp.glassMultiply);
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = 0.85;

@@ -392,7 +392,11 @@ surfaces. The glass is rendered twice over a solid core standing in for the
 sand — its highlights over black, which the painter adds, and its darkening
 over white, which the painter multiplies — so what is inside the glass is
 still the painter's to draw, and both passes hold on a light page as on a
-dark one.
+dark one. On load each pass is made into a layer that is clear where the
+glass does nothing (`glassLayer` in `sprites.ts`: the darkening as black at
+its strength, the light as white at its), because a blend over a canvas
+that is transparent behind the glass — the preset cards — has nothing to
+blend with and would paint the opaque sprite as it is: a white slab.
 
 Where a sprite is missing or has not loaded, the painter draws its own, so
 a build without models, or the first frame before they arrive, is the same
