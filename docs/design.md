@@ -207,7 +207,18 @@ stage draws the heaps half a turn round the glass's own axis until the
 turn ends, so nothing on the screen jumps). Each grain flies under the pull
 where it is, strikes the glass and slides down it under Coulomb friction
 (`WALL_FRICTION`), and the heaps land — to one side, where the turn threw
-them — before the glass comes to rest.
+them — before the glass comes to rest. The run is the one the turn makes,
+as of the tap, and the clock drains it from the half turn on, once the
+hole is fed: gravity within `STOP_LEAN` of the axis toward the waist, and
+sand on the cells at the bore — so the stream starts in the last of the
+turn, the moment the sand gets there, and what the clock says ran before
+then goes through at once.
+
+The glass is the same either way up, so once the turn ends it is drawn
+upright again; the frame is not — its finials stand on one plate only — so
+it stays as the turn left it (`upended`), turned half round on the stage
+and, in the flat picture, with its finials hanging under the bottom plate.
+Nothing jumps when a turn ends.
 
 **What the glass feels.** Every grain that hits the glass counts into the
 bulb's `hits`, as its volume times its speed squared over the bulb's
@@ -370,7 +381,9 @@ Back to front: the shadow on the table; the glow behind the glass once the
 sand has run out; the bottom plate; the posts behind the glass; the glass's
 back wall, with those posts seen through it, bent by the bulb's curve and
 dimmed by the tint; the sand in both bulbs; the stream; the glass's front
-wall; the posts in front; the top plate and its finials.
+wall; the posts in front; the top plate and its finials (or, the frame
+the other way up after a tap's turn, its finials hanging under the bottom
+plate, drawn before it).
 
 **The sand** is its heightfield turned into facets — a quad per ring per
 spoke — sorted far to near and shaded by how squarely each faces the light,

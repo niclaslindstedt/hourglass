@@ -27,7 +27,8 @@ import {
 // The order is the order things stand in, back to front: the shadow on the
 // table, the bottom plate, the posts behind the glass, the glass's back
 // wall, the sand, the stream, the glass's front wall and its reflections,
-// the posts in front, the top plate and what sits on it.
+// the posts in front, the top plate and what sits on it (or, the frame the
+// other way up, what hangs under the bottom one, behind it).
 //
 // The glass is `paintGlass.ts` and the sand `paintSand.ts`; this file is the
 // frame, the table and the order, and re-exports what a screen needs.
@@ -47,6 +48,24 @@ export function paintHourglass(
 
   paintShadow(ctx, frame);
   if (frame.glow > 0) paintGlow(ctx, frame);
+  const posts = postPositions(top, layout);
+  // The finials: on the top plate, or — the frame the other way up, as a
+  // tap's turn leaves it — hanging under the bottom one, behind it.
+  const finials = (y: number, hang: boolean) => {
+    for (const p of posts) {
+      ctx.save();
+      if (hang) {
+        // Mirrored up and down about where it meets the plate.
+        const at = project(cam, p.x, y, p.z);
+        ctx.translate(0, 2 * at.y);
+        ctx.scale(1, -1);
+      }
+      if (sp?.finial?.at) drawSpriteAt(ctx, cam, sp.finial, p.x, y, p.z);
+      else paintFinial(ctx, cam, top, p, y);
+      ctx.restore();
+    }
+  };
+  if (frame.upended) finials(-B - top.thick, true);
   // The plates: the modelled one where it has loaded — the same picture
   // for both ends, the upper one shifted up by the glass and a plate —
   // and the painter's own otherwise.
@@ -54,7 +73,6 @@ export function paintHourglass(
   if (sp?.plate) drawSprite(ctx, cam, sp.plate);
   else paintPlate(ctx, cam, top, -B - top.thick, -B, layout.reach);
   paintFootShadow(ctx, frame);
-  const posts = postPositions(top, layout);
   const post = (p: Post, k: number) => {
     const s = sp?.posts[sp.posts.length === 2 ? k : 0];
     if (s?.at) drawSpriteAt(ctx, cam, s, p.x, -B, p.z);
@@ -75,11 +93,7 @@ export function paintHourglass(
   });
   if (sp?.plate) drawSprite(ctx, cam, sp.plate, 0, plateLift);
   else paintPlate(ctx, cam, top, B, B + top.thick, layout.reach);
-  for (const p of posts) {
-    if (sp?.finial?.at)
-      drawSpriteAt(ctx, cam, sp.finial, p.x, B + top.thick, p.z);
-    else paintFinial(ctx, cam, top, p, B + top.thick);
-  }
+  if (!frame.upended) finials(B + top.thick, false);
 }
 
 // ── The modelled parts ──────────────────────────────────────────────────────

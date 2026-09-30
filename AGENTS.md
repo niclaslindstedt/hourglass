@@ -404,7 +404,11 @@ one (bottom-left in screen terms, turned 180° so it reads the right way up —
 turns the same way. Either way the sand falls as grains to the other end and
 lands (`turnOver` in `physics.ts` — mirrored left for right for a tap,
 because the picture turned; not for the phone, the same glass in the same
-place). Both go through `turn` in `timer.ts` and `land` in `Hourglass.tsx`;
+place). A tap's run starts as of the tap, and its sand runs from the half
+turn on, once the hole is fed (`feedsHole` in `physics.ts`), so the
+stream starts before the turn ends; and the frame, unlike the glass, is
+not the same either way up, so it stays as the turn left it (`upended`)
+rather than snapping back. Both go through `turn` in `timer.ts` and `land` in `Hourglass.tsx`;
 do not add a third path.
 
 ### The phone is the glass

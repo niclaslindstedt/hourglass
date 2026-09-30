@@ -51,8 +51,12 @@ The screen, and the whole app.
   comes onto its side the pull leaves the end the sand rests on, the far
   side of the heap first, and the sand comes away, strikes the glass,
   slides down it and lands at the other end, to one side, before the turn
-  is done; then it runs from the bulb now on top. A running glass turns
-  over the same way, and what had run through is what is now left to run.
+  is done; as soon as it reaches the hole, with the glass within 60° of
+  standing, it starts to run from the bulb now on top, the last of the
+  turn still going. The frame stays the way the turn left it — its
+  finials, if it has them, now under the bottom plate — until the next
+  tap turns it back. A running glass turns over the same way, and what
+  had run through is what is now left to run.
 - **Drag** up or down on the glass and it becomes a longer or a shorter one,
   one length on the list per step: 1 to 10 minutes by the minute, then 15,
   20, 25, 30, 45, 60, 90 and 120. A new length is a new glass, standing with
