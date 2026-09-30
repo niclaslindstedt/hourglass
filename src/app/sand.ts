@@ -58,7 +58,56 @@ export type Bulb = {
   /** How shaken the glass is, 0..1: a heap in a shaken glass holds a flatter
    *  slope than one at rest. */
   give: number;
+  /** The bulb's shape, for the grains in the air to hit (`physics.ts`). */
+  shape: BulbShape;
+  /** Gravity in the bulb's frame, in g: across (x), along the heights (y,
+   *  negative towards the resting end) and across (z). What the glass's
+   *  own acceleration adds is in it too (`setGravity`). */
+  g: [number, number, number];
+  /** The flowing layer's speed on every edge between two cells, in units
+   *  of height a second (`physics.ts`): out along each spoke (`vr`, ring
+   *  `i` to `i + 1`) and round each ring (`va`, spoke `a` to `a + 1`). */
+  vr: Float64Array;
+  va: Float64Array;
+  /** The grains in the air: the dilute layer (`physics.ts`). */
+  air: Air;
+  /** How hard grains have struck the glass since it was last asked, as
+   *  volume times speed squared, over the bulb's capacity. */
+  hits: number;
+  /** Whether the heap has been thrown up by the pull that is on it now:
+   *  a shake throws once per stroke, not once per frame. */
+  thrown: boolean;
 };
+
+/** The grains in the air, as parallel arrays: where each is in the bulb's
+ *  frame (x and z across, y the height from the resting end), how fast it
+ *  moves, and how much sand it carries. `count` are live. */
+export type Air = {
+  count: number;
+  x: Float64Array;
+  y: Float64Array;
+  z: Float64Array;
+  vx: Float64Array;
+  vy: Float64Array;
+  vz: Float64Array;
+  vol: Float64Array;
+};
+
+/** How many grains a bulb keeps in the air at most. */
+export const AIR_CAP = 2400;
+
+function createAir(): Air {
+  return {
+    count: 0,
+    x: new Float64Array(AIR_CAP),
+    y: new Float64Array(AIR_CAP),
+    z: new Float64Array(AIR_CAP),
+    vx: new Float64Array(AIR_CAP),
+    vy: new Float64Array(AIR_CAP),
+    vz: new Float64Array(AIR_CAP),
+    vol: new Float64Array(AIR_CAP),
+  };
+}
 
 /** How many rings a bulb is kept in, and how many spokes. */
 export const RINGS = 32;
@@ -122,6 +171,13 @@ export function createBulb(
     tilt: [0, 0],
     lean: new Float64Array(n * m),
     give: 0,
+    shape,
+    g: [0, -1, 0],
+    vr: new Float64Array(n * m),
+    va: new Float64Array(n * m),
+    air: createAir(),
+    hits: 0,
+    thrown: false,
   };
 }
 
@@ -134,6 +190,14 @@ export function createBulb(
  * sweeps, which is what a heap does.
  */
 export function setTilt(bulb: Bulb, tx: number, tz: number): void {
+  const k = 1 / Math.hypot(1, tx, tz);
+  bulb.g = [tx * k, -k, tz * k];
+  leanTo(bulb, tx, tz);
+}
+
+/** The lean alone: what `setTilt` does to the heights' reading, without
+ *  touching gravity's strength. */
+export function leanTo(bulb: Bulb, tx: number, tz: number): void {
   bulb.tilt = [tx, tz];
   for (let i = 0; i < bulb.n; i++) {
     const r = bulb.centre[i]!;
@@ -193,11 +257,14 @@ export function axisHeight(bulb: Bulb): number {
   return h / bulb.m;
 }
 
-/** Empty the bulb. */
+/** Empty the bulb: the heap, the flow on it and the grains in the air. */
 export function clear(bulb: Bulb): void {
   for (let i = 0; i < bulb.n; i++) {
     bulb.height.fill(bulb.floor[i]!, i * bulb.m, (i + 1) * bulb.m);
   }
+  bulb.vr.fill(0);
+  bulb.va.fill(0);
+  bulb.air.count = 0;
 }
 
 /** The cell a point across the bulb falls in. */
@@ -212,7 +279,12 @@ export function cellAt(bulb: Bulb, x: number, z: number): [number, number] {
 }
 
 /** Fill one cell up to the wall over it; what did not fit comes back. */
-function fillCell(bulb: Bulb, i: number, a: number, amount: number): number {
+export function fillCell(
+  bulb: Bulb,
+  i: number,
+  a: number,
+  amount: number,
+): number {
   const cell = bulb.area[i]! / bulb.m;
   const k = i * bulb.m + a;
   const room = (bulb.ceiling[i]! - bulb.height[k]!) * cell;
@@ -286,7 +358,7 @@ export function drain(bulb: Bulb, amount: number): number {
 
 /** The slope the heap holds now: its angle of repose, flattened by however
  *  shaken it is. */
-function holds(bulb: Bulb): number {
+export function holds(bulb: Bulb): number {
   return bulb.slope * (1 - GIVE_SLOPE * Math.min(1, Math.max(0, bulb.give)));
 }
 
@@ -346,10 +418,10 @@ function slide(
  * angle. Read against gravity's lean, so a tilted glass settles to a
  * surface that leans with it. Returns how much sand moved.
  */
-export function relax(bulb: Bulb, sweeps = 1): number {
+export function relax(bulb: Bulb, sweeps = 1, slope?: number): number {
   let moved = 0;
   const { n, m, centre } = bulb;
-  const max = holds(bulb);
+  const max = slope ?? holds(bulb);
   const dr = centre[0]! * 2;
   for (let s = 0; s < sweeps; s++) {
     // Alternate the direction, so a long slope settles from both ends
