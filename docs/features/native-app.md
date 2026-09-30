@@ -24,11 +24,13 @@ to the last grain of the sand.
 
 ## Turning the phone
 
-The phone's motion sensor reaches the page the way it reaches any web page,
-through the browser's own `deviceorientation` event — the wrapper does nothing
-for it. On an iPhone the sensor asks for permission the first time the glass
-is pressed, and the app says so in Settings. The reading is used for the next
-frame and thrown away.
+The phone's motion sensors reach the page the way they reach any web page,
+through the browser's own `deviceorientation` and `devicemotion` events — the
+wrapper does nothing for them. On an iPhone they ask for permission the first
+time the glass is tapped, and the app says so in Settings. A reading is used
+for the next frame and thrown away. The sky behind the glass is placed by the
+device's time zone, not its location, so the wrapper asks for no location
+permission either.
 
 ## What the wrapper does not do
 

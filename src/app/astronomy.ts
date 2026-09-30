@@ -17,9 +17,9 @@ import { ZONES } from "./zones.ts";
 // light of a Madrid afternoon two hours before sunset.
 //
 // Pure and clock-free: the moment is a parameter (milliseconds since the
-// epoch), handed in by the loop. The place is the device's time zone
-// (`placeOfZone`), or — if the person asked for it — a position the
-// browser gave for this session, never stored and never sent.
+// epoch), handed in by the loop. The place is the city the device's time
+// zone is named for (`placeOfZone`) — never a location lookup, and nothing
+// is asked for or sent.
 
 const RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;

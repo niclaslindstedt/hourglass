@@ -13,31 +13,55 @@ maps the scope to the registry and carries no token.
 `@types/react` — see `AGENTS.md`.
 
 **`make shots` fails to find a browser.** Playwright is not a dependency of
-the app. Install it outside the lockfile — the script's header says how — or
-point the script at a Chromium with `--browser <path>`.
+the app. The `screenshot` skill looks for a `playwright-core` whose Chromium
+is on disk in three places, in order: the skill's own `node_modules`
+(`.agents/skills/screenshot/`), the checkout's, and the machine's global npm
+tree. `make shots-warm` says which is missing and installs it — a
+`playwright-core` into the skill, and its Chromium — then builds and opens
+one page to prove the three work together.
+
+**`make shots` is slow.** The glass is WebGL, and headless Chromium draws it
+on the CPU (SwiftShader): about twenty seconds a frame, two at a time by
+default (`--jobs`). Ask for the frames you need — a `--screen`, a
+`--variant`, one `--device` — rather than the whole matrix.
 
 ## The glass
 
 **Turning the phone does nothing.** **Settings → The timer → Turn with the
-phone** must be on, and on an iPhone the motion sensor has to be allowed: it is
-asked for the first time you press the glass, and if it was refused, allow it
-under the browser's site settings (or the phone's Settings for the app) and
-press again. A desktop has no sensor, and the glass turns by tap alone.
+phone** must be on, and on an iPhone the motion sensors have to be allowed:
+they are asked for the first time you tap the glass (or switch the setting
+on) — Safari only grants them at the end of a tap, not while a finger is
+still down. If it was refused, allow it under the browser's site settings
+(or the phone's Settings for the app) and tap again. A desktop has no
+sensor, and the glass turns by tap alone.
 
-**The sand stopped when I tilted the phone.** Past sixty degrees from
-upright the hole is not fed, as in a real glass on its side; stand the phone
-up and the run goes on from where it was, the pause not counted. A phone
-laid flat on a table does not stop it.
+**The sand stopped when I tilted the phone.** Past sixty degrees to a side
+the hole is not fed, as in a real glass on its side; stand the phone up and
+the run goes on from where it was, the pause not counted. A phone leaned
+back or forward, or laid flat on a table, does not stop it: the sand leans
+to the back or the front of the bulb and keeps running.
 
 **Shaking does nothing.** The shake reads the motion sensor, which an iPhone
-grants with the orientation sensor on the first press; **Turn with the
-phone** off turns both off. A gentle movement is under the threshold — a
-shake is a shake.
+grants with the orientation sensor on the first tap; **Turn with the
+phone** off turns both off. A gentle movement is under the threshold: the
+sand is thrown up only by a jerk toward the end it rests on, faster than it
+would fall. On a desk, a quick sideways flick of the glass is the shake.
 
-**The frame looks plain, or changed after a moment.** The modelled frame
-and glass are pictures the app fetches from its own files; until they
-arrive the painter draws its own plainer version, and a build without
-`public/models/` shows that version always.
+**The phone does not buzz when the sand lands.** **Feel the sand** is off,
+the page has not been tapped yet (a browser allows a buzz only after one),
+or the device cannot buzz from a web page — Safari on an iPhone cannot.
+
+**The glass looks flat, or plainer than on another device.** The glass is
+drawn in 3D with WebGL; where the browser cannot start it, or loses it, the
+app paints the glass flat instead. The flat picture's modelled frame and
+glass are pictures the app fetches from its own files; until they arrive
+the painter draws its own plainer version.
+
+**The sky is dark, or the sun is in the wrong place.** **Settings → The
+sky → Now** is the sky outside at this moment, where the device's time zone
+says it is — the city the zone is named for, so a place far from that city
+sees the sun a little off. Pick **Day**, **Dusk** or **Night** for a fixed
+sky.
 
 **The screen went to sleep mid-run.** **Keep the screen on** is off, or the
 browser refused the wake lock (an iPhone in Low Power Mode does). The sand is
@@ -46,10 +70,6 @@ still right when the screen comes back: the run is read off the clock.
 **The glass came back further on than it left.** That is the same clock: a
 glass in a background tab, or on a locked phone, keeps running, and the first
 frame back shows the sand where it is now.
-
-**The sand looks coarse or flat.** The grain is drawn one speck to a device
-pixel, so a browser zoomed out, or a display at a fractional scale, draws it
-softer. The light on the glass is rendered once per size; a resize redraws it.
 
 **The buzz does not come.** The device has no vibration motor (a desk, an
 iPhone in Safari), or **Buzz when it runs out** is off. The light behind the
