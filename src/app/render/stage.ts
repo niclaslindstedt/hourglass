@@ -60,6 +60,10 @@ export type StageFrame = {
    *  the heaps are then held half a turn round the glass's own axis, so
    *  they stay where they were. */
   turned?: boolean;
+  /** Whether the frame stands the other way up: each tap's turn leaves it
+   *  so, finials and all, the way a real one is left — the glass is the
+   *  same either way up, the frame is not. */
+  upended?: boolean;
   view: View;
   /** The phone's orientation, device to Earth (`deviceToEarth`), or null
    *  for a glass held upright facing the default heading. */
@@ -224,6 +228,7 @@ export class Stage {
   private look: Look | null = null;
   private parts: THREE.Group | null = null;
   private heaps = new THREE.Group();
+  private frame = new THREE.Group();
   private bulbs: BulbView[] = [];
   private stream: THREE.Mesh | null = null;
   private streamGrains: THREE.InstancedMesh | null = null;
@@ -301,7 +306,8 @@ export class Stage {
     parts.add(heaps);
     this.heaps = heaps;
     const glass = glassMaterial(look);
-    parts.add(frameGroup(look, layout, glass));
+    this.frame = frameGroup(look, layout, glass);
+    parts.add(this.frame);
     parts.add(glassMesh(layout, glass));
     const speckle = sandTextures(SAND[look.sand]);
     const textures = { ...speckle, bump: loadGrainBump() };
@@ -513,6 +519,7 @@ export class Stage {
       "ZYX",
     );
     this.glassGroup.rotation.set(0, view.orbit, 0);
+    this.frame.rotation.z = frame.upended ? Math.PI : 0;
     const visible = 2 * DISTANCE * Math.tan(((FOV / 2) * Math.PI) / 180);
     const s = visible * frame.size;
     this.glassGroup.scale.set(s, s, s);

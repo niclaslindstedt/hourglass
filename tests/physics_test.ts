@@ -8,6 +8,7 @@ import {
   G,
   airborne,
   buzzFor,
+  feedsHole,
   frictionOf,
   heapCentre,
   launch,
@@ -446,5 +447,44 @@ describe("a glass turned by a tap", () => {
       HAIR,
     );
     expect(Math.abs(volume(source) - sand * 0.4) / sand).toBeLessThan(HAIR);
+  });
+
+  it("feeds the hole only when the sand is at it and the glass is within the lean that halts a run", () => {
+    const halts = Math.tan((60 * Math.PI) / 180);
+    const b = bulb("waist");
+    setGravity(b, 0, -1, 0);
+    expect(feedsHole(b, halts)).toBe(false);
+    levelFill(b, capacity(b) * 0.4);
+    expect(feedsHole(b, halts)).toBe(true);
+    // Leaned 50°: still fed. On its side at 70°, or upside down: not.
+    const lean = (deg: number) => {
+      const r = (deg * Math.PI) / 180;
+      setGravity(b, Math.sin(r), -Math.cos(r), 0);
+      return feedsHole(b, halts);
+    };
+    expect(lean(50)).toBe(true);
+    expect(lean(70)).toBe(false);
+    expect(lean(180)).toBe(false);
+  });
+
+  it("runs the sand before the turn ends: it reaches the hole in the turn's last part", () => {
+    const halts = Math.tan((60 * Math.PI) / 180);
+    const source = bulb("waist");
+    const sink = bulb("plate");
+    const sand = capacity(source) * 0.45;
+    funnelFill(source, sand, sand * 0.6);
+    pileFill(sink, sand * 0.4);
+    const swapped = { done: false };
+    let fed = Infinity;
+    for (let t = 0; t <= T; t += FRAME) {
+      turnFrame(source, sink, t, swapped);
+      step(source, FRAME, t);
+      step(sink, FRAME, t + 0.5);
+      if (swapped.done && fed === Infinity && feedsHole(source, halts)) fed = t;
+    }
+    // Not before the glass is past its side, and a good while before it
+    // stands again.
+    expect(fed).toBeGreaterThan(T / 2);
+    expect(fed).toBeLessThan(T * 0.9);
   });
 });

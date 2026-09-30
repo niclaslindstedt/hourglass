@@ -418,6 +418,18 @@ export function flowing(bulb: Bulb): boolean {
   return false;
 }
 
+/** Whether the hole is fed: gravity toward the end the bulb rests on,
+ *  leaning off its axis by no more than `maxLean` (a tangent — the lean
+ *  that halts a run held on its side), and sand on the cells at the bore.
+ *  A turning glass's upper heap starts to run when this first holds. */
+export function feedsHole(bulb: Bulb, maxLean: number): boolean {
+  const [gx, gy, gz] = bulb.g;
+  if (gy >= 0 || Math.hypot(gx, gz) > -gy * maxLean) return false;
+  const { m, height, floor } = bulb;
+  for (let a = 0; a < m; a++) if (height[a]! - floor[0]! > EPS) return true;
+  return false;
+}
+
 /** The glass's radius at a height from the resting end. */
 export function wallAt(bulb: Bulb, y: number): number {
   const s = bulb.shape;

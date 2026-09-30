@@ -8,6 +8,7 @@ import { glassLight, grainPattern, paintHourglass } from "./paint.ts";
 import {
   airborne,
   buzzFor,
+  feedsHole,
   moving,
   setGravity,
   setSpin,
@@ -36,6 +37,7 @@ import { pageTurn, uprightDelta } from "./upright.ts";
 import {
   deviceToEarth,
   leanStops,
+  STOP_LEAN,
   type Gravity,
   type Motion,
   type Vec3,
@@ -171,6 +173,10 @@ type Sim = {
   sand: number;
   run: Run;
   flip: Flip | null;
+  /** Whether the frame stands the other way up: a tap's turn turns the
+   *  frame with it and leaves it so, where the glass, the same either way
+   *  up, is drawn upright again. */
+  upended: boolean;
   done: boolean;
   glow: number;
   view: View;
@@ -258,6 +264,7 @@ export function Hourglass({
       sand,
       run: nextRun,
       flip: null,
+      upended: previous?.upended ?? false,
       done: f >= 1,
       glow: 0,
       view: previous?.view ?? createView(),
@@ -287,8 +294,11 @@ export function Hourglass({
 
   /** A tap's turn, finished: the run turned as of the tap. */
   const endFlip = useCallback(
-    (flip: Flip, now: number) =>
-      land(turn(flip.from, flip.start), now, true, flip.swapped),
+    (flip: Flip, now: number) => {
+      const s = sim.current;
+      if (s) s.upended = !s.upended;
+      land(turn(flip.from, flip.start), now, true, flip.swapped);
+    },
     [land],
   );
 
@@ -417,10 +427,17 @@ export function Hourglass({
     }
 
     // The clock: the top drained to what it says has passed, and the same
-    // sand poured where the stream lands.
+    // sand poured where the stream lands. In a tap's turn the run is the
+    // one the turn makes, as of the tap; the sand runs by it once it has
+    // been handed over, the glass is within `STOP_LEAN` of standing and
+    // the sand has reached the hole — so the stream starts in the turn.
     let stream: StreamPath | null = null;
-    if (!s.flip) {
-      const f = passed(s.run, now);
+    const flowing = s.flip
+      ? s.flip.swapped && feedsHole(s.source, STOP_LEAN)
+      : true;
+    const run = s.flip ? turn(s.flip.from, s.flip.start) : s.run;
+    if (flowing) {
+      const f = passed(run, now);
       const target = s.sand * (1 - f);
       const d = volume(s.source) + airborne(s.source) - target;
       if (d > 1e-9) {
@@ -430,11 +447,14 @@ export function Hourglass({
         stream = streamPath(s.sink);
         pour(s.sink, drain(s.source, d), stream.landX, stream.landZ);
         // A big jump — the tab was asleep — settles at once.
-        if (d > s.sand * 0.01) {
+        if (!s.flip && d > s.sand * 0.01) {
           settle(s.source);
           settle(s.sink);
         }
       }
+    }
+    if (!s.flip) {
+      const f = passed(s.run, now);
       if (f >= 1 && !s.done) {
         s.done = true;
         s.glow = 1;
@@ -458,7 +478,11 @@ export function Hourglass({
       vibrate(buzz);
     }
 
-    const running = !s.flip && isRunning(s.run, now) && volume(s.source) > 1e-9;
+    const running =
+      flowing &&
+      isRunning(run, now) &&
+      volume(s.source) > 1e-9 &&
+      (!s.flip || stream !== null);
     if (s.glow > 0) s.glow = Math.max(0, s.glow - 0.004);
     const busy =
       moving(s.source) ||
@@ -487,6 +511,7 @@ export function Hourglass({
         gravity: s.gravity,
         flip: flipAngle,
         turned: swapped,
+        upended: s.upended,
         view: s.view,
         orientation: s.view.turn ? matOf(s.view.turn) : null,
         sky: s.skyLook,
@@ -499,9 +524,11 @@ export function Hourglass({
       });
     } else {
       // The flat painter turns the whole picture: once the sand has been
-      // handed over, the glass it is drawn in is the one half a turn back.
+      // handed over, the glass it is drawn in is the one half a turn back,
+      // and so is its frame, the other way up.
       const angle = swapped ? flipAngle - Math.PI : flipAngle;
-      paintFlat(el, s, w, h, dpr, angle, share, running, seconds);
+      const upended = s.upended !== swapped;
+      paintFlat(el, s, w, h, dpr, angle, upended, share, running, seconds);
     }
     // Said once a frame is up, for whatever waits on the picture (the
     // screenshot skill); not read by the app.
@@ -521,6 +548,7 @@ export function Hourglass({
     h: number,
     dpr: number,
     angle: number,
+    upended: boolean,
     share: number,
     running: boolean,
     seconds: number,
@@ -565,6 +593,7 @@ export function Hourglass({
           : null,
       light,
       sprites: sp,
+      upended,
     });
     ctx.restore();
   }

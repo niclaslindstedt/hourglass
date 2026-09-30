@@ -50,6 +50,9 @@ export type Frame = {
    *  plates, the posts, the finials and the light on the glass are then
    *  those pictures rather than the painter's own. */
   sprites: LookSprites | null;
+  /** Whether the frame stands the other way up, as a tap's turn leaves
+   *  it: the finials hang under the bottom plate. */
+  upended?: boolean;
 };
 
 /** A post's place: across the plate, into the picture, and how far in
