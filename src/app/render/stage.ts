@@ -4,7 +4,7 @@ import * as THREE from "three";
 import type { Layout } from "../glass.ts";
 import { SAND, type Look } from "../look.ts";
 import { airborne, streamPath, wallAt, type StreamPath } from "../physics.ts";
-import type { Bulb } from "../sand.ts";
+import { AIR_CAP, type Bulb } from "../sand.ts";
 import {
   rimHeights,
   surfaceIndex,
@@ -15,7 +15,7 @@ import { VIEW_HEADING, type SkyLook } from "../sky.ts";
 import type { View } from "../view.ts";
 import { disposeGroup, frameGroup, glassMaterial, glassMesh } from "./parts.ts";
 import { createSkyDome, MIRROR_SUN, type SkyDome } from "./skyDome.ts";
-import { dotTexture, sandTextures } from "./textures.ts";
+import { sandTextures } from "./textures.ts";
 
 // The picture, in three dimensions: the glass on a stage with the sky
 // round it, drawn by three.js.
@@ -39,10 +39,12 @@ import { dotTexture, sandTextures } from "./textures.ts";
 //
 // THE SAND is the heaps `sand.ts` keeps: each bulb's surface as a mesh
 // (`sandMesh.ts`), its body against the glass as the wall cut at the height
-// the heap meets it, the grains in the air as points, and the stream from
-// the waist to the heap under it. The bulbs are drawn in their own frames
-// — heights from the end they rest against — so an upside-down glass is a
-// group flipped along its axis, and nothing else.
+// the heap meets it, the grains in the air as lit balls the size of the
+// sand each carries, and the stream from the waist to the heap under it.
+// The bulbs are drawn in their own frames — heights from the end they rest
+// against — so an upside-down glass is a group flipped along its axis, and
+// a tap's turn that has handed the sand over holds them half a turn round
+// the glass's own axis, where the sand is.
 
 export type StageFrame = {
   look: Look;
@@ -54,6 +56,10 @@ export type StageFrame = {
   gravity: 1 | -1;
   /** The tap's half turn, rad about the axis into the screen. */
   flip: number;
+  /** Whether a tap's turn has handed the sand to the other ends already:
+   *  the heaps are then held half a turn round the glass's own axis, so
+   *  they stay where they were. */
+  turned?: boolean;
   view: View;
   /** The phone's orientation, device to Earth (`deviceToEarth`), or null
    *  for a glass held upright facing the default heading. */
@@ -81,6 +87,14 @@ const DISTANCE = 3.2;
 /** How many grains fall down the stream at once. */
 const STREAM_GRAINS = 64;
 
+/** A grain in the air is drawn as a clump the size of the sand it carries
+ *  (a ball of its volume), never smaller than this: a stray grain thrown
+ *  by a shake is still seen. Units of the glass's height. */
+const GRAIN_MIN = 0.003;
+
+/** How big a grain running down the stream is, as a share of the bore. */
+const STREAM_GRAIN = 0.4;
+
 /** How many times the sand's speckle repeats across a unit of height. */
 const GRAIN_REPEAT = 6;
 
@@ -107,8 +121,7 @@ type BulbView = {
   uvs: Float32Array;
   skin: THREE.Mesh;
   rims: Float32Array;
-  air: THREE.Points;
-  airPositions: Float32Array;
+  air: THREE.InstancedMesh;
 };
 
 /** A sand material that drops what is not sand: a vertex's `presence`
@@ -210,13 +223,12 @@ export class Stage {
   private glowLight = new THREE.PointLight(0xfff0d0, 0, 1.5, 2);
   private look: Look | null = null;
   private parts: THREE.Group | null = null;
+  private heaps = new THREE.Group();
   private bulbs: BulbView[] = [];
   private stream: THREE.Mesh | null = null;
-  private streamGrains: THREE.Points | null = null;
-  private streamPositions = new Float32Array(STREAM_GRAINS * 3);
+  private streamGrains: THREE.InstancedMesh | null = null;
   private streamKey = "";
   private sandMaterials: THREE.Material[] = [];
-  private dot = dotTexture();
   private basis = new THREE.Matrix4();
   private width = 1;
   private height = 1;
@@ -285,6 +297,9 @@ export class Stage {
     this.sandMaterials = [];
     this.look = look;
     const parts = new THREE.Group();
+    const heaps = new THREE.Group();
+    parts.add(heaps);
+    this.heaps = heaps;
     const glass = glassMaterial(look);
     parts.add(frameGroup(look, layout, glass));
     parts.add(glassMesh(layout, glass));
@@ -339,16 +354,9 @@ export class Stage {
         skinMaterial,
       );
       skin.receiveShadow = true;
-      const airPositions = new Float32Array(bulb.air.x.length * 3);
-      const airGeometry = new THREE.BufferGeometry();
-      airGeometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(airPositions, 3),
-      );
-      const air = new THREE.Points(airGeometry, this.grainMaterial(look));
-      air.frustumCulled = false;
+      const air = this.grains(look, AIR_CAP);
       group.add(surface, skin, air);
-      parts.add(group);
+      heaps.add(group);
       this.sandMaterials.push(surfaceMaterial, skinMaterial);
       return {
         group,
@@ -359,7 +367,6 @@ export class Stage {
         skin,
         rims,
         air,
-        airPositions,
       };
     });
     // The stream: a thread of sand, and grains falling down it.
@@ -370,30 +377,37 @@ export class Stage {
     this.stream = new THREE.Mesh(new THREE.BufferGeometry(), streamMaterial);
     this.streamKey = "";
     this.stream.frustumCulled = false;
-    const sg = new THREE.BufferGeometry();
-    sg.setAttribute(
-      "position",
-      new THREE.BufferAttribute(this.streamPositions, 3),
-    );
-    this.streamGrains = new THREE.Points(sg, this.grainMaterial(look));
-    this.streamGrains.frustumCulled = false;
+    this.streamGrains = this.grains(look, STREAM_GRAINS);
+    this.streamGrains.count = STREAM_GRAINS;
     this.bulbs[1]!.group.add(this.stream, this.streamGrains);
     this.sandMaterials.push(streamMaterial);
     this.parts = parts;
     this.glassGroup.add(parts);
   }
 
-  private grainMaterial(look: Look): THREE.PointsMaterial {
+  /** Grains, lit like the heap they come from: a small ball each, placed
+   *  and sized a frame at a time. Points would be quicker, but a point is
+   *  not lit — it glows the sand's own colour in any light, and a falling
+   *  heap drawn with them shines at dusk and at night. */
+  private grains(look: Look, count: number): THREE.InstancedMesh {
     const spec = SAND[look.sand];
-    const material = new THREE.PointsMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(spec.color),
-      size: spec.grain === "coarse" ? 0.007 : 0.005,
-      map: this.dot,
-      alphaTest: 0.4,
-      sizeAttenuation: true,
+      roughness: 1,
+      metalness: spec.sparkle ? 0.35 : 0,
+      envMapIntensity: 0.45,
     });
     this.sandMaterials.push(material);
-    return material;
+    const mesh = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(1, 0),
+      material,
+      count,
+    );
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    return mesh;
   }
 
   /** The sky, into the dome, the lights and — when it has moved enough to
@@ -509,6 +523,7 @@ export class Stage {
     const up = frame.gravity;
     const [src, snk] = this.bulbs;
     if (src && snk) {
+      this.heaps.rotation.z = frame.turned ? Math.PI : 0;
       src.group.position.y = 0;
       src.group.scale.y = up;
       snk.group.position.y = -up * B;
@@ -540,14 +555,16 @@ export class Stage {
     g.computeVertexNormals();
     rimHeights(bulb, view.rims);
     const air = bulb.air;
+    const m = view.air.instanceMatrix.array as Float32Array;
     for (let k = 0; k < air.count; k++) {
-      view.airPositions[k * 3] = air.x[k]!;
-      view.airPositions[k * 3 + 1] = air.y[k]!;
-      view.airPositions[k * 3 + 2] = air.z[k]!;
+      const r = Math.max(
+        GRAIN_MIN,
+        Math.cbrt((3 * air.vol[k]!) / (4 * Math.PI)),
+      );
+      place(m, k, air.x[k]!, air.y[k]!, air.z[k]!, r);
     }
-    const ag = view.air.geometry;
-    ag.setDrawRange(0, air.count);
-    ag.attributes.position!.needsUpdate = true;
+    view.air.count = air.count;
+    view.air.instanceMatrix.needsUpdate = true;
     view.air.visible = air.count > 0 && airborne(bulb) > 0;
   }
 
@@ -606,6 +623,8 @@ export class Stage {
     // own moment of the trip: quickening through the air, sliding at the
     // pace friction allows on the glass.
     const { points, times, count } = path;
+    const m = grains.instanceMatrix.array as Float32Array;
+    const size = frame.layout.bulb.bore * STREAM_GRAIN;
     const trip = Math.max(1e-3, times[count - 1]!);
     let j = 0;
     const order = Array.from({ length: STREAM_GRAINS }, (_, k) => {
@@ -627,13 +646,16 @@ export class Stage {
       // In the air a falling stream spreads a little; on the glass it
       // is a rivulet pressed to the wall.
       const spread = j < path.wall ? r * (1 + 2 * (at / trip)) : r * 0.6;
-      this.streamPositions[k * 3] =
-        x + Math.sin(k * 12.9898 + frame.seconds * 3) * 0.5 * spread;
-      this.streamPositions[k * 3 + 1] = y;
-      this.streamPositions[k * 3 + 2] =
-        z + Math.cos(k * 78.233 + frame.seconds * 2) * 0.5 * spread;
+      place(
+        m,
+        k,
+        x + Math.sin(k * 12.9898 + frame.seconds * 3) * 0.5 * spread,
+        y,
+        z + Math.cos(k * 78.233 + frame.seconds * 2) * 0.5 * spread,
+        size,
+      );
     }
-    grains.geometry.attributes.position!.needsUpdate = true;
+    grains.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
@@ -643,9 +665,29 @@ export class Stage {
     this.envDome.dispose();
     this.env?.dispose();
     this.pmrem.dispose();
-    this.dot.dispose();
     this.renderer.dispose();
   }
+}
+
+/** Instance `k` of a grain mesh as a ball of radius `r` at (x, y, z),
+ *  written straight into its matrix (column-major). */
+function place(
+  m: Float32Array,
+  k: number,
+  x: number,
+  y: number,
+  z: number,
+  r: number,
+): void {
+  const o = k * 16;
+  m.fill(0, o, o + 16);
+  m[o] = r;
+  m[o + 5] = r;
+  m[o + 10] = r;
+  m[o + 12] = x;
+  m[o + 13] = y;
+  m[o + 14] = z;
+  m[o + 15] = 1;
 }
 
 /** A path's shape, coarsely: the tube is rebuilt only when it moves by

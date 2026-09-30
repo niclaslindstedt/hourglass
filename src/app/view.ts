@@ -30,8 +30,10 @@ import type { Vec3 } from "./useMotion.ts";
 // the world — eases toward each reading over a few hundredths of a second,
 // the way a heavy thing in a hand takes up a motion rather than copying
 // it. Short enough that a turn or a shake still reads as that, long enough
-// that the tremor does not. The sand is told what they do to gravity, and how
-// hard they swing (`swing`), which is what a desk's shake is made of.
+// that the tremor does not. The sand is told what they do to gravity. The
+// finger's orbit is not: a glass spun about its own axis carries the sand,
+// round and centred on that axis, round with it, and nothing in a spin
+// about the axis pushes it to a side.
 // Pure and clock-free: `dt` is a parameter.
 
 /** A rotation as a unit quaternion, x, y, z, w. */
@@ -47,9 +49,6 @@ export type View = {
   /** The glass turned about its own axis by a finger, rad, and how fast. */
   orbit: number;
   orbitRate: number;
-  /** How fast the orbit's rate changed, rad/s², eased: the desk's
-   *  shake. */
-  swing: number;
   /** What the glass feels of the phone (`follow`), eased toward each
    *  reading: gravity in the phone's frame, one g long; the phone's own
    *  acceleration, m/s²; how fast it turns, rad/s; and how it stands in
@@ -83,8 +82,6 @@ const DOWN_TAU = 0.12;
 const ACCEL_TAU = 0.05;
 const GYRO_TAU = 0.08;
 const TURN_TAU = 0.09;
-/** How long the desk's shake takes up a change, s. */
-const SWING_TAU = 0.05;
 
 export function createView(): View {
   return {
@@ -93,7 +90,6 @@ export function createView(): View {
     spin: [0, 0, 0],
     orbit: 0,
     orbitRate: 0,
-    swing: 0,
     down: [0, -1, 0],
     accel: [0, 0, 0],
     gyro: [0, 0, 0],
@@ -264,7 +260,6 @@ export function stepView(
     view.lagRate[k] = rate;
     view.spin[k] = spin[k]!;
   }
-  const before = view.orbitRate;
   if (held !== null) {
     view.orbitRate = (held - view.orbit) / h;
     view.orbit = held;
@@ -272,8 +267,6 @@ export function stepView(
     view.orbitRate += (-ORBIT_K * view.orbit - ORBIT_C * view.orbitRate) * h;
     view.orbit += view.orbitRate * h;
   }
-  const swing = (view.orbitRate - before) / h;
-  view.swing += (swing - view.swing) * ease(h, SWING_TAU);
 }
 
 /** Whether the view has come to rest. */

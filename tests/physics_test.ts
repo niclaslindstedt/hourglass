@@ -9,11 +9,15 @@ import {
   airborne,
   buzzFor,
   frictionOf,
+  heapCentre,
+  launch,
+  letGo,
   muFlow,
   muStart,
   muStop,
   moving,
   setGravity,
+  setSpin,
   step,
   streamPath,
   turnOver,
@@ -23,6 +27,7 @@ import {
   capacity,
   cellAt,
   createBulb,
+  funnelFill,
   levelFill,
   pileFill,
   pour,
@@ -332,5 +337,114 @@ describe("the stream's motion", () => {
       sticky.height[j * sticky.m + b]!,
       9,
     );
+  });
+});
+
+describe("a glass turned by a tap", () => {
+  /** A tap's turn as the loop drives it (`Hourglass.tsx`): half a turn
+   *  about the axis into the screen over `T` seconds, eased in and out,
+   *  the sand handed to the other ends at the half turn. */
+  const T = 0.72;
+  function turnFrame(
+    source: Bulb,
+    sink: Bulb,
+    t: number,
+    swapped: { done: boolean },
+  ): void {
+    const p = Math.min(1, t / T);
+    const early = p < 0.5;
+    const e = p >= 1 ? 1 : early ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+    const angle = Math.PI * e;
+    const w = p >= 1 ? 0 : (Math.PI * (early ? 4 * p : 4 * (1 - p))) / T;
+    const alpha = p >= 1 ? 0 : (Math.PI * (early ? 4 : -4)) / (T * T);
+    if (!early && !swapped.done) {
+      turnOver(source, sink, true);
+      swapped.done = true;
+    }
+    const k = swapped.done ? -1 : 1;
+    for (const b of [source, sink]) {
+      setSpin(b, p < 1 ? [0, 0, k * w] : null, [0, 0, k * alpha]);
+      setGravity(b, k * Math.sin(-angle), -k * Math.cos(-angle), 0);
+    }
+  }
+
+  it("pulls sand out from the waist harder the farther it lies, and bends a moving grain across its path", () => {
+    const b = bulb("waist");
+    // Turning at the speed of a tap's half turn at its fastest, with no
+    // gravity: only the turn's own pull.
+    setSpin(b, [0, 0, 8]);
+    setGravity(b, 0, 0, 0);
+    launch(b, 0, 0.1, 0, 0, 0, 0, 1e-9);
+    launch(b, 0, 0.35, 0, 0, 0, 0, 1e-9);
+    launch(b, 0, 0.2, 0, 0, 1, 0, 1e-9);
+    step(b, 0.02, 1);
+    // Out along the axis, away from the waist: ω²r.
+    expect(b.air.vy[0]!).toBeCloseTo(64 * 0.1 * 0.02, 1);
+    expect(b.air.vy[1]!).toBeGreaterThan(b.air.vy[0]! * 3);
+    // Coriolis: −2ω×v, sideways for a grain running along the glass.
+    expect(b.air.vx[2]!).toBeGreaterThan(0.2);
+  });
+
+  it("lets a heap go cell by cell where the pull leaves the floor, far from the waist first", () => {
+    const upper = bulb("waist");
+    const sand = capacity(upper) * 0.4;
+    funnelFill(upper, sand, sand);
+    setSpin(upper, [0, 0, 8]);
+    // Gravity still along the glass, a little: the turn beats it only far
+    // from the waist.
+    setGravity(upper, 0.5, -0.2, 0);
+    const gone = letGo(upper);
+    expect(gone).toBeGreaterThan(sand * 0.05);
+    expect(gone).toBeLessThan(sand * 0.95);
+    let y = 0;
+    for (let k = 0; k < upper.air.count; k++) y += upper.air.y[k]!;
+    expect(y / upper.air.count).toBeGreaterThan(heapCentre(upper)[1]);
+    expect(Math.abs(total(upper) - sand) / sand).toBeLessThan(1e-12);
+    // The lower bulb, on its side: the turn presses its sand to the plate.
+    const lower = bulb("plate");
+    pileFill(lower, sand);
+    setSpin(lower, [0, 0, 8]);
+    setGravity(lower, 1, 0, 0);
+    expect(letGo(lower)).toBe(0);
+  });
+
+  it("slides the sand from the start of the turn, drops it unevenly, and lands it before the turn ends", () => {
+    const source = bulb("waist");
+    const sink = bulb("plate");
+    const sand = capacity(source) * 0.45;
+    funnelFill(source, sand, sand * 0.6);
+    pileFill(sink, sand * 0.4);
+    const start = Float64Array.from(sink.height);
+    const swapped = { done: false };
+    let slid = Infinity;
+    let fell = Infinity;
+    for (let t = 0; t < T + 1; t += FRAME) {
+      turnFrame(source, sink, t, swapped);
+      step(source, FRAME, t);
+      step(sink, FRAME, t + 0.5);
+      if (!swapped.done) {
+        let most = 0;
+        for (let k = 0; k < start.length; k++)
+          most = Math.max(most, Math.abs(sink.height[k]! - start[k]!));
+        if (most > 0.01) slid = Math.min(slid, t);
+      }
+      if (airborne(source) + airborne(sink) > sand * 0.1)
+        fell = Math.min(fell, t);
+      if (t > T * 0.95 && t < T) {
+        // Landed, near enough all of it, while the glass is still turning.
+        expect(airborne(source) + airborne(sink)).toBeLessThan(sand * 0.02);
+      }
+    }
+    // Sliding within the first third of the turn, falling before the half.
+    expect(slid).toBeLessThan(T / 3);
+    expect(fell).toBeLessThan(T / 2);
+    // Where the turn threw it: to one side, not back on the axis.
+    expect(Math.abs(heapCentre(sink)[0])).toBeGreaterThan(
+      source.centre[0]! * 2 * 3,
+    );
+    expect(Math.abs(total(source) + total(sink) - sand) / sand).toBeLessThan(
+      HAIR,
+    );
+    expect(Math.abs(volume(source) - sand * 0.4) / sand).toBeLessThan(HAIR);
   });
 });

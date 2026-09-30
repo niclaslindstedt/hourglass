@@ -45,8 +45,13 @@ The screen, and the whole app.
 ## What a gesture does
 
 - **Tap** the glass, anywhere on it, and it turns over: the frame rotates
-  half a turn, the sand held where it is while it turns, then drops to its
-  new floor, lands and runs from the bulb now on top. A running glass turns
+  half a turn, and the sand feels it from the start — its surface slides
+  as the glass tilts, it lags the turn as it starts, and the turn presses
+  it out from the waist, harder the farther it lies. About as the glass
+  comes onto its side the pull leaves the end the sand rests on, the far
+  side of the heap first, and the sand comes away, strikes the glass,
+  slides down it and lands at the other end, to one side, before the turn
+  is done; then it runs from the bulb now on top. A running glass turns
   over the same way, and what had run through is what is now left to run.
 - **Drag** up or down on the glass and it becomes a longer or a shorter one,
   one length on the list per step: 1 to 10 minutes by the minute, then 15,
@@ -55,9 +60,9 @@ The screen, and the whole app.
   same, and `Space` or `Enter` turns it over.
 - **Drag sideways** and the glass turns about its own axis, to see the sand
   from another side; let go and it spins on, slows and comes back to face
-  you. The left and right arrow keys nudge it. On a desk, where there is no
-  phone to shake, a quick sideways flick is the shake: the jerk pushes the
-  sand.
+  you. The left and right arrow keys nudge it. The sand turns with the
+  glass and stays where it lies: it sits on the axis the glass spins about,
+  and a spin about that axis pushes it to no side.
 - **Turn the phone** over and the sand falls to the other end and runs the
   other way, without the picture moving — it is the phone that moved, not
   the glass. The bulb that is now lower on the phone is the one the sand

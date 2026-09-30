@@ -6,10 +6,12 @@ import {
   clear,
   holds,
   leanTo,
+  levelApex,
   pour,
   relax,
   spokeAngle,
   type Bulb,
+  type Spin,
 } from "./sand.ts";
 
 // The sand in motion: what a heap does between two frames, as physics
@@ -40,6 +42,20 @@ import {
 //   jerked down faster than a fall lifts the heap off its floor — bounces
 //   off the glass with a little of its speed (and a hit for the phone to
 //   buzz with, `buzzFor`), and joins the heap again where it lands.
+//
+// A glass turned over by a tap is a turning frame (`setSpin`): while it
+// turns, the sand in it feels gravity swinging round the glass and the
+// pulls of the turn itself — outward from the waist it turns about, as
+// ω²r, so sand at the far end of a bulb is pressed out harder than sand by
+// the hole; sideways as the turn quickens and slows, α×r, so the sand lags
+// the start of the turn and runs on at its end; and across its own path,
+// 2ω×v, once it moves. The heap feels them at its middle: its surface
+// slides as soon as the pull leans past the sand's angle (the turn is too
+// quick for the flowing layer alone, so the heap is held to that angle
+// every step). Each cell of it feels them where it is, and lets go of its
+// end the moment the pull there turns away from that end (`letGo`) — the
+// sand far from the waist first — and each grain then flies under the
+// pull where it is, hits the glass, slides and lands.
 //
 // Every grain is volume: sand thrown up is taken off its cell and put
 // back where it lands, so the sand is conserved through all of it to the
@@ -89,10 +105,9 @@ const SUBSTEP = 1 / 240;
  *  heap after a long sleep instead. */
 const LONGEST = 1 / 15;
 
-/** How much of its speed into the glass a grain keeps when it hits it, and
- *  how much of its speed along it. */
+/** How much of its speed into the glass a grain keeps when it hits it
+ *  (what it loses along it is `WALL_FRICTION`'s). */
 const RESTITUTION = 0.3;
-const WALL_SLIP = 0.8;
 
 /** How much of a hit on the heap (rather than the glass) is felt. */
 const SOFT = 0.25;
@@ -120,6 +135,9 @@ function hash(seed: number): number {
  * be neither one g nor pointing at the floor. The heap reads its lean off
  * it (capped where the heap would stand against the wall); when it pulls
  * away from the floor the heap is thrown up on the next step.
+ *
+ * In a turning glass (`setSpin`, set first) the turn's own pull at the
+ * heap's middle is added.
  */
 export function setGravity(
   bulb: Bulb,
@@ -127,6 +145,17 @@ export function setGravity(
   gy: number,
   gz: number,
 ): void {
+  const spin = bulb.spin;
+  if (spin) {
+    // The turn's pull at the heap's middle, which the heap as a whole
+    // leans and flows by.
+    const [cx, cy, cz] = heapCentre(bulb);
+    turnPull(bulb, spin, cx, cy, cz, 0, 0, 0);
+    spin.base = [PULL[0]! / G, PULL[1]! / G, PULL[2]! / G];
+    gx += spin.base[0];
+    gy += spin.base[1];
+    gz += spin.base[2];
+  }
   bulb.g = [gx, gy, gz];
   const along = Math.max(0.2, -gy);
   let tx = gx / along;
@@ -142,6 +171,83 @@ export function setGravity(
   ) {
     leanTo(bulb, tx, tz);
   }
+}
+
+/**
+ * The glass turning about its waist, in the bulb's frame: `w` its angular
+ * speed, rad/s, and `alpha` its angular acceleration, rad/s² — or null
+ * when it is not turning. Set before `setGravity`, which adds the turn's
+ * pull at the heap to the gravity the heap feels.
+ */
+export function setSpin(
+  bulb: Bulb,
+  w: [number, number, number] | null,
+  alpha: [number, number, number] = [0, 0, 0],
+): void {
+  bulb.spin = w ? { w, alpha, base: [0, 0, 0] } : null;
+}
+
+/** Where the turn's pull is written, heights a second squared. */
+const PULL = new Float64Array(3);
+
+/**
+ * What a turning glass adds to the pull on a grain at (x, y, z) moving at
+ * (vx, vy, vz) in the bulb's frame, into `PULL`: the centrifugal pull out
+ * from the waist, −ω×(ω×r), the Euler pull of the turn quickening or
+ * slowing, −α×r, and the Coriolis pull across the grain's path, −2ω×v.
+ * `r` is measured from the waist, the point the glass turns about.
+ */
+function turnPull(
+  bulb: Bulb,
+  spin: Spin,
+  x: number,
+  y: number,
+  z: number,
+  vx: number,
+  vy: number,
+  vz: number,
+): void {
+  const [wx, wy, wz] = spin.w;
+  const [ax, ay, az] = spin.alpha;
+  const rx = x;
+  const ry = bulb.rest === "waist" ? y : y - bulb.shape.height;
+  const rz = z;
+  // ω×r, then −ω×(ω×r).
+  const cx = wy * rz - wz * ry;
+  const cy = wz * rx - wx * rz;
+  const cz = wx * ry - wy * rx;
+  PULL[0] =
+    -(wy * cz - wz * cy) - (ay * rz - az * ry) - 2 * (wy * vz - wz * vy);
+  PULL[1] =
+    -(wz * cx - wx * cz) - (az * rx - ax * rz) - 2 * (wz * vx - wx * vz);
+  PULL[2] =
+    -(wx * cy - wy * cx) - (ax * ry - ay * rx) - 2 * (wx * vy - wy * vx);
+}
+
+/** The middle of the heap's sand, in the bulb's frame; the middle of the
+ *  bulb when there is none. */
+export function heapCentre(bulb: Bulb): [number, number, number] {
+  const { n, m, area, floor, height, centre } = bulb;
+  let v = 0;
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (let i = 0; i < n; i++) {
+    const cell = area[i]! / m;
+    for (let a = 0; a < m; a++) {
+      const k = i * m + a;
+      const depth = height[k]! - floor[i]!;
+      if (depth <= EPS) continue;
+      const dv = depth * cell;
+      const t = spokeAngle(bulb, a);
+      v += dv;
+      x += dv * centre[i]! * Math.cos(t);
+      y += dv * (floor[i]! + depth / 2);
+      z += dv * centre[i]! * Math.sin(t);
+    }
+  }
+  if (v <= EPS) return [0, bulb.shape.height / 2, 0];
+  return [x / v, y / v, z / v];
 }
 
 /** The friction the heap flows by now, as the law's three tangents: the
@@ -299,15 +405,7 @@ export function flow(bulb: Bulb, dt: number): number {
       moved += edge(bulb, va, p, p, q, i, i, arc, dr, dt, gt, f);
     }
   }
-  let level = 0;
-  for (let a = 0; a < m; a++) level += bulb.height[a]! + bulb.lean[a]!;
-  level /= m;
-  for (let a = 0; a < m; a++) {
-    bulb.height[a] = Math.max(
-      bulb.floor[0]!,
-      Math.min(level - bulb.lean[a]!, bulb.ceiling[0]!),
-    );
-  }
+  levelApex(bulb);
   return moved;
 }
 
@@ -389,11 +487,31 @@ export function fly(bulb: Bulb, dt: number): void {
   const H = shape.height;
   const cap = capacity(bulb);
   const drag = 1 - 0.4 * dt;
+  const spin = bulb.spin;
   let k = 0;
   while (k < air.count) {
-    let vx = (air.vx[k]! + ax * dt) * drag;
-    let vy = (air.vy[k]! + ay * dt) * drag;
-    let vz = (air.vz[k]! + az * dt) * drag;
+    let px = ax;
+    let py = ay;
+    let pz = az;
+    if (spin) {
+      // The turn's pull where this grain is, in place of the heap's.
+      turnPull(
+        bulb,
+        spin,
+        air.x[k]!,
+        air.y[k]!,
+        air.z[k]!,
+        air.vx[k]!,
+        air.vy[k]!,
+        air.vz[k]!,
+      );
+      px += PULL[0]! - spin.base[0] * G;
+      py += PULL[1]! - spin.base[1] * G;
+      pz += PULL[2]! - spin.base[2] * G;
+    }
+    let vx = (air.vx[k]! + px * dt) * drag;
+    let vy = (air.vy[k]! + py * dt) * drag;
+    let vz = (air.vz[k]! + pz * dt) * drag;
     let x = air.x[k]! + vx * dt;
     let y = air.y[k]! + vy * dt;
     let z = air.z[k]! + vz * dt;
@@ -425,9 +543,19 @@ export function fly(bulb: Bulb, dt: number): void {
         const tx = vx - vn * nx;
         const ty = vy - vn * ny;
         const tz = vz - vn * nz;
-        vx = tx * WALL_SLIP - vn * RESTITUTION * nx;
-        vy = ty * WALL_SLIP - vn * RESTITUTION * ny;
-        vz = tz * WALL_SLIP - vn * RESTITUTION * nz;
+        // Coulomb's friction: the blow into the glass takes at most μ of
+        // itself off the speed along it — so a grain pressed to the glass
+        // slides down it as a grain on glass does, and one that strikes
+        // it hard is caught.
+        const along = Math.hypot(tx, ty, tz);
+        const slip =
+          along > 1e-12
+            ? Math.max(0, along - WALL_FRICTION * (1 + RESTITUTION) * vn) /
+              along
+            : 0;
+        vx = tx * slip - vn * RESTITUTION * nx;
+        vy = ty * slip - vn * RESTITUTION * ny;
+        vz = tz * slip - vn * RESTITUTION * nz;
       }
       x = ux * R;
       z = uz * R;
@@ -498,11 +626,78 @@ export function toss(bulb: Bulb, seed: number): number {
   return thrown;
 }
 
+/** How many grains a cell of the heap lets go as: enough that a falling
+ *  heap reads as sand rather than as pebbles, few enough to fly them all. */
+const PER_CELL = 4;
+
+/** A point in cell (`i`, `a`), somewhere across it rather than at its
+ *  centre — drawn from `seed` — so a heap that lets go falls as a scatter
+ *  and not as the grid it was kept in. */
+function inCell(
+  bulb: Bulb,
+  i: number,
+  a: number,
+  seed: number,
+): [number, number] {
+  const dr = bulb.centre[0]! * 2;
+  const r = Math.max(0, bulb.centre[i]! + (hash(seed * 1.7) - 0.5) * dr);
+  const t =
+    spokeAngle(bulb, a) + ((hash(seed * 3.1 + 5) - 0.5) * 2 * Math.PI) / bulb.m;
+  return [r * Math.cos(t), r * Math.sin(t)];
+}
+
+/**
+ * The cells of a heap in a turning glass that are pulled off the end they
+ * rest on: nothing holds sand to a floor it is pulled away from, so each
+ * such cell lets go at once, as grains — `PER_CELL` a cell, where they
+ * lay, moving with the glass — which then fly under the pull where each
+ * one is. The pull is read at each cell, not at the heap's middle: the
+ * turn pulls hardest far from the waist, and sideways by how far off the
+ * axis a cell is, so a heap comes away unevenly, its far side first. Only
+ * while the glass turns (`setSpin`); a shake throws a layer instead
+ * (`toss`). Returns how much sand let go.
+ */
+export function letGo(bulb: Bulb): number {
+  const spin = bulb.spin;
+  if (!spin) return 0;
+  const { n, m, area, floor, height, centre } = bulb;
+  // Gravity alone, without the turn's pull at the heap's middle.
+  const gy = bulb.g[1] - spin.base[1];
+  let gone = 0;
+  for (let i = 0; i < n; i++) {
+    const cell = area[i]! / m;
+    for (let a = 0; a < m; a++) {
+      const k = i * m + a;
+      const depth = height[k]! - floor[i]!;
+      if (depth <= EPS) continue;
+      const t = spokeAngle(bulb, a);
+      const r = centre[i]!;
+      const mid = floor[i]! + depth / 2;
+      turnPull(bulb, spin, r * Math.cos(t), mid, r * Math.sin(t), 0, 0, 0);
+      if (gy + PULL[1]! / G <= 0) continue;
+      const part = (depth * cell) / PER_CELL;
+      // From the top of the cell down, so a full air leaves the bottom of
+      // the heap where it was.
+      for (let j = PER_CELL - 1; j >= 0; j--) {
+        const [x, z] = inCell(bulb, i, a, k + j / PER_CELL);
+        const y = floor[i]! + (depth * (j + 0.5)) / PER_CELL;
+        if (!launch(bulb, x, y, z, 0, 0, 0, part)) return gone;
+        height[k] = height[k]! - depth / PER_CELL;
+        gone += part;
+      }
+      height[k] = floor[i]!;
+      bulb.vr[k] = 0;
+      bulb.va[k] = 0;
+    }
+  }
+  return gone;
+}
+
 /**
  * Turn the glass over: the heap in each bulb lets go of the end it rested
  * against and falls to the other, which is where the other bulb's role
  * now rests. `a` and `b` swap their sand — `a`'s falls into `b`'s frame
- * and `b`'s into `a`'s — as grains, two a cell, so the heap drops as a
+ * and `b`'s into `a`'s — as grains, `PER_CELL` a cell, so the heap drops as a
  * body and lands in a scatter the flow then brings to its angle.
  *
  * `mirror` is for a glass turned in the picture — half a turn about the
@@ -521,22 +716,23 @@ export function turnOver(a: Bulb, b: Bulb, mirror = true): void {
 
 type Grain = [number, number, number, number, number, number, number];
 
-/** The sand of a bulb as grains in its own frame: the heap, two a cell, and
- *  whatever is already in the air. */
+/** The sand of a bulb as grains in its own frame: the heap, `PER_CELL` a
+ *  cell, and whatever is already in the air. */
 function grainsOf(bulb: Bulb): Grain[] {
   const out: Grain[] = [];
-  const { n, m, area, floor, height, centre, air } = bulb;
+  const { n, m, area, floor, height, air } = bulb;
   for (let i = 0; i < n; i++) {
     const cell = area[i]! / m;
     for (let a = 0; a < m; a++) {
       const k = i * m + a;
       const depth = height[k]! - floor[i]!;
       if (depth <= EPS) continue;
-      const t = spokeAngle(bulb, a);
-      const x = centre[i]! * Math.cos(t);
-      const z = centre[i]! * Math.sin(t);
-      out.push([x, floor[i]! + depth * 0.75, z, 0, 0, 0, (depth * cell) / 2]);
-      out.push([x, floor[i]! + depth * 0.25, z, 0, 0, 0, (depth * cell) / 2]);
+      const part = (depth * cell) / PER_CELL;
+      for (let j = 0; j < PER_CELL; j++) {
+        const [x, z] = inCell(bulb, i, a, k + j / PER_CELL);
+        const y = floor[i]! + (depth * (j + 0.5)) / PER_CELL;
+        out.push([x, y, z, 0, 0, 0, part]);
+      }
     }
   }
   for (let k = 0; k < air.count; k++) {
@@ -567,8 +763,8 @@ function place(bulb: Bulb, grains: Grain[], mirror: boolean): void {
 }
 
 /**
- * The sand over one frame of `dt` seconds: thrown up if the glass pulls
- * away from it, the flowing layer and the grains in the air stepped
+ * The sand over one frame of `dt` seconds: let go where a turning glass
+ * pulls it off its floor, thrown up if a shaken one does, the flowing layer and the grains in the air stepped
  * together, and a last sweep that lets go of any cliff far past the
  * static angle — a heap the loop has just built or dropped, which a flow
  * a few millimetres deep would take seconds to bring down. `seed` draws a
@@ -579,12 +775,17 @@ export function step(bulb: Bulb, dt: number, seed: number): void {
   const steps = Math.max(1, Math.ceil(span / SUBSTEP));
   const h = span / steps;
   for (let s = 0; s < steps; s++) {
-    toss(bulb, seed + s * 0.37);
+    if (bulb.spin) letGo(bulb);
+    else toss(bulb, seed + s * 0.37);
     flow(bulb, h);
     fly(bulb, h);
   }
   const { still } = frictionOf(bulb);
-  relax(bulb, 1, still * 1.35);
+  // A turn swings gravity round the heap faster than a flow a few
+  // millimetres deep can follow: the surface is held to the angle it
+  // starts to slide at, so it slides as the glass turns.
+  if (bulb.spin) relax(bulb, 2, still);
+  else relax(bulb, 1, still * 1.35);
 }
 
 /** Whether anything in the bulb is still moving: a flow, or a grain in the
