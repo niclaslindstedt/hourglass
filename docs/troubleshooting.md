@@ -45,7 +45,8 @@ to the back or the front of the bulb and keeps running.
 grants with the orientation sensor on the first tap; **Turn with the
 phone** off turns both off. A gentle movement is under the threshold: the
 sand is thrown up only by a jerk toward the end it rests on, faster than it
-would fall. On a desk, a quick sideways flick of the glass is the shake.
+would fall. On a desk there is no phone to shake: a sideways drag spins
+the glass about its own axis, which leaves the sand where it lies.
 
 **The phone does not buzz when the sand lands.** **Feel the sand** is off,
 the page has not been tapped yet (a browser allows a buzz only after one),

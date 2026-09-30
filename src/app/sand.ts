@@ -64,6 +64,10 @@ export type Bulb = {
    *  negative towards the resting end) and across (z). What the glass's
    *  own acceleration adds is in it too (`setGravity`). */
   g: [number, number, number];
+  /** The glass being turned over about its waist (`physics.ts`,
+   *  `setSpin`), or null while it is not: what the turn adds to the pull
+   *  each grain feels, where it is. */
+  spin: Spin | null;
   /** The flowing layer's speed on every edge between two cells, in units
    *  of height a second (`physics.ts`): out along each spoke (`vr`, ring
    *  `i` to `i + 1`) and round each ring (`va`, spoke `a` to `a + 1`). */
@@ -77,6 +81,16 @@ export type Bulb = {
   /** Whether the heap has been thrown up by the pull that is on it now:
    *  a shake throws once per stroke, not once per frame. */
   thrown: boolean;
+};
+
+/** A turning glass, in the bulb's frame: its angular speed (rad/s) and
+ *  angular acceleration (rad/s²) about the waist, and the pull the turn
+ *  adds at the heap's middle (in g), which `g` carries and `fly` and
+ *  `letGo` swap for the pull where each grain or cell is. */
+export type Spin = {
+  w: [number, number, number];
+  alpha: [number, number, number];
+  base: [number, number, number];
 };
 
 /** The grains in the air, as parallel arrays: where each is in the bulb's
@@ -94,7 +108,7 @@ export type Air = {
 };
 
 /** How many grains a bulb keeps in the air at most. */
-export const AIR_CAP = 2400;
+export const AIR_CAP = 4800;
 
 function createAir(): Air {
   return {
@@ -173,6 +187,7 @@ export function createBulb(
     give: 0,
     shape,
     g: [0, -1, 0],
+    spin: null,
     vr: new Float64Array(n * m),
     va: new Float64Array(n * m),
     air: createAir(),
@@ -411,6 +426,47 @@ function slide(
 }
 
 /**
+ * The apex — the innermost ring — levelled against the lean, keeping its
+ * sand: the level is the one at which the spokes, each held between the
+ * floor and the ceiling, hold what they held (a steep lean presses some
+ * against one or the other, so it is found rather than averaged). Returns
+ * how much sand moved.
+ */
+export function levelApex(bulb: Bulb): number {
+  const { m, height, lean } = bulb;
+  const lo = bulb.floor[0]!;
+  const hi = bulb.ceiling[0]!;
+  let held = 0;
+  let low = Infinity;
+  let high = -Infinity;
+  for (let a = 0; a < m; a++) {
+    held += height[a]!;
+    low = Math.min(low, lo + lean[a]!);
+    high = Math.max(high, hi + lean[a]!);
+  }
+  const at = (level: number) => {
+    let v = 0;
+    for (let a = 0; a < m; a++) {
+      v += Math.max(lo, Math.min(level - lean[a]!, hi));
+    }
+    return v;
+  };
+  for (let k = 0; k < 48; k++) {
+    const mid = (low + high) / 2;
+    if (at(mid) < held) low = mid;
+    else high = mid;
+  }
+  const level = (low + high) / 2;
+  let moved = 0;
+  for (let a = 0; a < m; a++) {
+    const h = Math.max(lo, Math.min(level - lean[a]!, hi));
+    moved += Math.abs(h - height[a]!);
+    height[a] = h;
+  }
+  return moved * (bulb.area[0]! / m);
+}
+
+/**
  * One pass of the angle of repose over the surface: between every two
  * neighbouring cells — ring against ring along each spoke, and spoke
  * against spoke round each ring — if the surface drops more steeply than
@@ -443,20 +499,9 @@ export function relax(bulb: Bulb, sweeps = 1, slope?: number): number {
     }
     // The innermost ring is the apex, and one cell in all but name: its
     // spokes are levelled against the lean rather than slid round, which
-    // conserves volume (the lean sums to nothing round a ring) and keeps
-    // the apex from chattering between its radial and its angular
+    // keeps the apex from chattering between its radial and its angular
     // neighbours.
-    let level = 0;
-    for (let a = 0; a < m; a++) level += bulb.height[a]! + bulb.lean[a]!;
-    level /= m;
-    for (let a = 0; a < m; a++) {
-      const h = Math.max(
-        bulb.floor[0]!,
-        Math.min(level - bulb.lean[a]!, bulb.ceiling[0]!),
-      );
-      moved += Math.abs(h - bulb.height[a]!) * (bulb.area[0]! / m);
-      bulb.height[a] = h;
-    }
+    moved += levelApex(bulb);
   }
   return moved;
 }

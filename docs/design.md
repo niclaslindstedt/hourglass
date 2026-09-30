@@ -116,12 +116,13 @@ black sand steepest — so the funnel and the cone are a different shape in
 every preset, and it is the only thing about the sand's behaviour a look
 changes. The rate, the amount and the clock are the same for all of them.
 
-**The dilute layer** is the grains in the air (`Bulb.air`, up to 2,400 a
+**The dilute layer** is the grains in the air (`Bulb.air`, up to 4,800 a
 bulb): thrown up by a jerk, or falling from one end of the bulb to the other
 when the glass is turned over. Each is ballistic under the gravity the glass
 feels — the Earth's, less the phone's own acceleration — bounces off the
 glass wall (the surface the profile describes, keeping three tenths of its
-speed into it) and off the far end, and joins the heap again where it lands,
+speed into it, and losing along it what Coulomb's friction takes, so a grain
+pressed to the glass slides down it) and off the far end, and joins the heap again where it lands,
 volume-exactly: a grain thrown up is taken off its cell and put back where
 it comes down.
 
@@ -174,18 +175,39 @@ fall, pulls the floor out from under the heap: the top of it is thrown into
 the air (`toss`, once per stroke), and the grains fly, hit the glass and
 land. While the phone is being shaken the heap's friction drops (`give`),
 so it holds a flatter slope and slumps, and the flow brings it back when the
-shaking stops. On a desk there is no phone to shake; the jerk of a
-sideways drag's orbit stands in for it. None of this touches the clock: the
+shaking stops. A sideways drag's orbit is not a shake: the glass spins
+about its own axis, the sand is centred on it, and nothing in that spin
+pushes the sand to a side, so the sand is left where it lies. None of this touches the clock: the
 sand through is the sand the time says.
 
 **Turning over** (`turnOver`) lets each heap go of the end it rested
-against: its sand becomes grains, two a cell, that fall to the other end as a
+against: its sand becomes grains, four a cell, that fall to the other end as a
 body and land in a scatter the flow then brings to its angle. A tap turns
 the picture half a turn about the axis into the screen, so the grains are
 mirrored left for right; a phone turned over is the same glass in the same
-place, and nothing crosses over. Through the tap's 720 ms half turn the heaps
-are held as they are — packed sand in a narrow bulb does hold for the moment
-a turn takes — and drop when the glass lands.
+place, and nothing crosses over.
+
+**A tap's turn is a turning frame** (`setSpin`). Through its 720 ms half
+turn, eased in and out, the sand feels gravity swinging round the glass and
+the pulls of the turn itself, each where the sand is: outward from the
+waist it turns about, ω²r, so the sand at the far end of a bulb is pressed
+out harder than the sand by the hole (about three quarters of a g at the
+plate, at the turn's fastest); sideways while the turn quickens and slows,
+α×r, so the sand lags the start of the turn and runs on at its end; and
+across a moving grain's path, 2ω×v. The heap feels them at its middle, and
+its surface slides from the first degrees of the turn — held to the angle
+it starts to slide at, since the turn swings gravity round faster than a
+flowing layer a few millimetres deep could follow. Each cell feels them
+where it is, and lets go of its end the moment the pull there turns away
+from it (`letGo`): the upper heap's far side first, a little before the
+glass is on its side (the turn pulls it off the waist), the lower heap not
+until after (the turn presses it to the plate). At the half turn the sand
+is handed to the roles of the ends it now falls towards (`turnOver`; the
+stage draws the heaps half a turn round the glass's own axis until the
+turn ends, so nothing on the screen jumps). Each grain flies under the pull
+where it is, strikes the glass and slides down it under Coulomb friction
+(`WALL_FRICTION`), and the heaps land — to one side, where the turn threw
+them — before the glass comes to rest.
 
 **What the glass feels.** Every grain that hits the glass counts into the
 bulb's `hits`, as its volume times its speed squared over the bulb's
@@ -325,7 +347,10 @@ Where the heap meets the glass on each spoke (`rimHeights`) cuts the
 line — which is the body of the sand pressed against the glass, what you
 see of sand from the side. Its surface is a speckle in the sand's colours
 with the photographed grain (`public/models/grain.png`, from the Blender
-pipeline's CC0 sand) as its bump; the grains in the air are points, and the
+pipeline's CC0 sand) as its bump; the grains in the air are small balls of
+the sand's own material, each the size of the sand it carries and lit and
+shadowed like the heap (a point sprite is not lit, and a falling heap drawn
+with them glowed at dusk and at night), and the
 stream is a tube along the path the grains take (`streamPath`), with grains
 moving down it at the traced pace — quickening through the air, sliding at
 the speed friction allows on the glass.

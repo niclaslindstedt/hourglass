@@ -10,6 +10,7 @@ import {
   buzzFor,
   moving,
   setGravity,
+  setSpin,
   step as stepSand,
   streamPath,
   turnOver,
@@ -119,10 +120,6 @@ const LABEL_MS = 1600;
 /** How far a sideways drag turns the glass, rad a pixel. */
 const ORBIT_PER_PX = 0.012;
 
-/** How much of a jerk of the orbit the sand feels, m/s² per rad/s²: the
- *  desk's shake, where there is no phone to shake. */
-const SWING_ACCEL = 0.05;
-
 /** The shortest gap between two buzzes, ms. */
 const BUZZ_GAP_MS = 70;
 
@@ -154,7 +151,9 @@ type Props = {
   className?: string;
 };
 
-type Flip = { start: number; from: Run };
+/** A tap's turn: when it began, the run it turned, and whether the sand
+ *  has been handed to the other ends yet (at the half turn). */
+type Flip = { start: number; from: Run; swapped: boolean };
 
 type Sim = {
   look: Look;
@@ -188,6 +187,13 @@ function aboutZ(v: Vec3, angle: number): Vec3 {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
   return [c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]];
+}
+
+/** A vector in the glass's frame, into the frame the heaps are drawn in:
+ *  half a turn round the glass's own axis once a tap's turn has handed the
+ *  sand over. */
+function halfTurned(v: Vec3, swapped: boolean): Vec3 {
+  return swapped ? [-v[0], -v[1], v[2]] : v;
 }
 
 export function Hourglass({
@@ -264,16 +270,27 @@ export function Hourglass({
   }, []);
 
   /** The glass has been turned: the run turns with it, and each heap lets
-   *  go of its end and falls to the other. */
-  const land = useCallback((nextRun: Run, now: number, mirror: boolean) => {
-    const s = sim.current;
-    if (!s) return;
-    turnOver(s.source, s.sink, mirror);
-    s.run = nextRun;
-    s.flip = null;
-    s.done = passed(nextRun, now) >= 1;
-    s.glow = 0;
-  }, []);
+   *  go of its end and falls to the other — unless a tap's turn already
+   *  handed the sand over at its half turn (`swapped`). */
+  const land = useCallback(
+    (nextRun: Run, now: number, mirror: boolean, swapped = false) => {
+      const s = sim.current;
+      if (!s) return;
+      if (!swapped) turnOver(s.source, s.sink, mirror);
+      s.run = nextRun;
+      s.flip = null;
+      s.done = passed(nextRun, now) >= 1;
+      s.glow = 0;
+    },
+    [],
+  );
+
+  /** A tap's turn, finished: the run turned as of the tap. */
+  const endFlip = useCallback(
+    (flip: Flip, now: number) =>
+      land(turn(flip.from, flip.start), now, true, flip.swapped),
+    [land],
+  );
 
   /** One frame: the phone, the physics, the clock, the picture. Returns
    *  whether anything is still moving. */
@@ -319,7 +336,7 @@ export function Hourglass({
       // Turned over with the phone: the run turns, and the sand falls to
       // the other end. Nothing on the screen turns — it is the phone that
       // moved.
-      if (s.flip) land(turn(s.flip.from, s.flip.start), now, true);
+      if (s.flip) endFlip(s.flip, now);
       s.gravity = reading.gravity;
       setUpside(reading.gravity === -1);
       land(turn(s.run, now), now, false);
@@ -329,35 +346,58 @@ export function Hourglass({
     // The gravity the sand feels, in the glass's own frame: the Earth's,
     // less the phone's own acceleration — and the desk's wiggle, where the
     // orbit's jerk stands in for it — turned into the glass as it hangs.
+    // A tap's half turn is eased in and out: its angle, and the speed and
+    // the quickening of the turn, which the sand feels as the pulls of a
+    // turning frame (`setSpin`). At the half turn — the glass on its side,
+    // the moment gravity crosses from one end of each bulb to the other —
+    // the sand is handed to the roles of the ends it now falls towards,
+    // and drawn held half a turn round the glass's own axis, where it is.
     let flipAngle = 0;
+    let spinRate = 0;
+    let spinAccel = 0;
     if (s.flip) {
       const p = Math.min(1, (now - s.flip.start) / TURN_MS);
       if (p >= 1) {
-        land(turn(s.flip.from, s.flip.start), now, true);
+        endFlip(s.flip, now);
       } else {
-        const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+        const T = TURN_MS / 1000;
+        const early = p < 0.5;
+        const e = early ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
         flipAngle = Math.PI * e;
+        spinRate = (Math.PI * (early ? 4 * p : 4 * (1 - p))) / T;
+        spinAccel = (Math.PI * (early ? 4 : -4)) / (T * T);
+        if (!early && !s.flip.swapped) {
+          turnOver(s.source, s.sink, true);
+          s.flip.swapped = true;
+        }
       }
     }
+    const swapped = s.flip?.swapped ?? false;
     const down = s.view.down;
     const accel = s.view.accel;
     const push: Vec3 = [
-      down[0] - (accel[0]! - s.view.swing * SWING_ACCEL) / 9.81,
+      down[0] - accel[0]! / 9.81,
       down[1] - accel[1]! / 9.81,
       down[2] - accel[2]! / 9.81,
     ];
-    const g = intoGlass(s.view, aboutZ(push, -flipAngle));
+    const g = halfTurned(intoGlass(s.view, aboutZ(push, -flipAngle)), swapped);
     const up = s.gravity;
+    // The turn, as the heaps' frames have it: the glass's own frame, half
+    // a turn round once the sand has been handed over, and — upside down —
+    // mirrored along the axis, which a turn (a pseudovector) takes as its
+    // two other components changing sign.
+    const spin = halfTurned(intoGlass(s.view, [0, 0, spinRate]), swapped);
+    const alpha = halfTurned(intoGlass(s.view, [0, 0, spinAccel]), swapped);
     for (const bulb of [s.source, s.sink]) {
+      setSpin(bulb, s.flip ? [up * spin[0], spin[1], up * spin[2]] : null, [
+        up * alpha[0],
+        alpha[1],
+        up * alpha[2],
+      ]);
       setGravity(bulb, g[0], up * g[1], g[2]);
       // A shaken heap holds a flatter slope: the grains are loosened.
       bulb.give = Math.max(bulb.give * 0.9, reading.shake);
     }
-    // Through a tap's half turn the heaps hold as they are — packed sand in
-    // a narrow bulb does, for the moment a turn takes — and drop when the
-    // glass lands.
-    const holding = s.flip !== null;
-
     // Held on its side the hole is not fed: the run halts, and starts
     // again when the glass is stood up. Read off the steady orientation,
     // not the shake.
@@ -401,10 +441,8 @@ export function Hourglass({
         if (s.run.startedAt !== null) callbacks.current.onDone();
       }
     }
-    if (!holding) {
-      stepSand(s.source, dt, s.frames);
-      stepSand(s.sink, dt, s.frames + 0.5);
-    }
+    stepSand(s.source, dt, s.frames);
+    stepSand(s.sink, dt, s.frames + 0.5);
 
     // The sand on the glass, felt.
     const hits = s.source.hits + s.sink.hits;
@@ -448,6 +486,7 @@ export function Hourglass({
         sink: s.sink,
         gravity: s.gravity,
         flip: flipAngle,
+        turned: swapped,
         view: s.view,
         orientation: s.view.turn ? matOf(s.view.turn) : null,
         sky: s.skyLook,
@@ -459,7 +498,10 @@ export function Hourglass({
         stream,
       });
     } else {
-      paintFlat(el, s, w, h, dpr, flipAngle, share, running, seconds);
+      // The flat painter turns the whole picture: once the sand has been
+      // handed over, the glass it is drawn in is the one half a turn back.
+      const angle = swapped ? flipAngle - Math.PI : flipAngle;
+      paintFlat(el, s, w, h, dpr, angle, share, running, seconds);
     }
     // Said once a frame is up, for whatever waits on the picture (the
     // screenshot skill); not read by the app.
@@ -468,7 +510,7 @@ export function Hourglass({
     return (
       running || s.flip !== null || s.glow > 0 || busy || reading.shake > 0
     );
-  }, [land]);
+  }, [land, endFlip]);
 
   /** The flat painter, where there is no WebGL: the picture the app drew
    *  before it had a stage, from the same heaps. */
@@ -668,7 +710,7 @@ export function Hourglass({
   const turnOverNow = useCallback(() => {
     const s = sim.current;
     if (!s || s.flip) return;
-    s.flip = { start: Date.now(), from: s.run };
+    s.flip = { start: Date.now(), from: s.run, swapped: false };
     callbacks.current.onTurn();
     wake();
   }, [wake]);

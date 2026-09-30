@@ -10,6 +10,7 @@ import {
   drain,
   funnelFill,
   jolt,
+  levelApex,
   levelFill,
   pileFill,
   pour,
@@ -217,6 +218,22 @@ describe("a tilted glass", () => {
       left += heightAt(bulb, i, Math.PI) - bulb.floor[i]!;
     }
     expect(right).toBeGreaterThan(left);
+  });
+
+  it("levels the apex against a steep lean without losing or making sand", () => {
+    const bulb = createBulb(shape, "waist", REPOSE);
+    // Seventy degrees, and a thin skin of sand over the hole: the apex's
+    // spokes are pressed against the floor on the high side, where an
+    // average would put them below it.
+    setTilt(bulb, Math.tan((70 * Math.PI) / 180), 0);
+    for (let a = 0; a < bulb.m; a++) bulb.height[a] = bulb.floor[0]! + 0.002;
+    const before = volume(bulb);
+    levelApex(bulb);
+    expect(Math.abs(volume(bulb) - before) / before).toBeLessThan(1e-9);
+    for (let a = 0; a < bulb.m; a++) {
+      expect(bulb.height[a]!).toBeGreaterThanOrEqual(bulb.floor[0]!);
+      expect(bulb.height[a]!).toBeLessThanOrEqual(bulb.ceiling[0]!);
+    }
   });
 
   it("lands a slanting stream where it falls, and the heap grows there", () => {

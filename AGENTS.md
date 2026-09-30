@@ -206,7 +206,9 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   bouncing off the wall and landing volume-exactly; `toss` throws them up
   when the glass is jerked toward its resting end, `turnOver` turns each
   heap into grains that fall to the other end (mirrored for a tap, not for
-  the phone). Hits on the glass count into `bulb.hits`, and `buzzFor` makes
+  the phone); `setSpin` makes a tap's turn a turning frame — centrifugal,
+  Euler and Coriolis pulls where each cell and grain is, `letGo` for the
+  cells the pull takes off their floor. Hits on the glass count into `bulb.hits`, and `buzzFor` makes
   a vibration of them. `GLASS_METRES` sets gravity's scale. Pure and
   clock-free: `dt` is a parameter; the clock is not in here.
 - `src/app/view.ts` — how the glass hangs in the phone: a spring-damper
@@ -216,7 +218,7 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   glass feels of the phone (gravity, the push, the spin, its stance in the
   world as a quaternion) toward each reading, so the sensor's tremor never
   reaches the picture; `intoGlass` takes gravity into the glass's frame;
-  `swing` is a desk's shake. Pure and clock-free.
+  the orbit never pushes the sand. Pure and clock-free.
 - `src/app/astronomy.ts` — the sun's and the moon's positions and the
   moon's phase (the standard low-precision formulas, as suncalc has them),
   clear-sky illuminance by the sun's altitude and the moon's by altitude and
@@ -258,7 +260,7 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   their materials — wood, metal, lacquer, and glass as a transmissive
   physical material with the spec's tint. A bare glass's plates are glass.
 - `src/app/render/textures.ts` — the wood's grain and the sand's speckle,
-  drawn from a deterministic hash, and the grains' dot. Nothing fetched.
+  drawn from a deterministic hash. Nothing fetched.
 - `src/app/scene.ts` — **the flat painter's** camera and light: an
   orthographic view with a slight pitch and yaw, `project` and `ellipseOf`
   for a point and a ring in it, `LIGHT`, `rimEdge` (also read by
@@ -287,10 +289,13 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   after a user activation, where `navigator.vibrate` exists and **Feel the
   sand** is on), works out the sky every few seconds, and draws on the
   `Stage` — or with the flat painter where WebGL cannot start. A tap turns
-  the glass over — the picture half-turns over `TURN_MS` (720 ms) with the
-  heaps held rigid, then they drop and land (`land`, `turnOver`); a drag up
+  the glass over — the picture half-turns over `TURN_MS` (720 ms) and the
+  sand feels it (`setSpin`): sliding as it tilts, let go cell by cell where
+  the pull leaves its end, handed to the other ends at the half turn
+  (`turnOver`, the stage's `turned`) and landed before the turn ends
+  (`land`); a drag up
   or down is a longer or a shorter glass, one length per `DRAG_STEP_PX`; a
-  drag sideways is the orbit (and, on a desk, its jerk is the shake); the
+  drag sideways is the orbit (which leaves the sand where it lies); the
   wheel and the arrow keys do the same. A turn of the phone turns the
   **run** without turning the picture; a lean past `STOP_LEAN` to a side
   halts it until the glass is stood up (`halt` / `resume`).
@@ -386,7 +391,9 @@ moments without fake timers.
 ### Turning the glass over, two ways
 
 A **tap** turns the picture: the frame rotates half a turn over `TURN_MS`
-with the heaps held as they are, and the run turns with it, so the bulb that
+with the sand feeling the turn (`setSpin` — gravity swinging round, the
+pull out from the waist, the lag and run-on of the turn's start and end),
+and the run turns with it, so the bulb that
 was full is now on top and running. The **phone** turning over turns the run
 only: the source is now the lower bulb on the screen and the stream runs up
 it, and nothing on the screen rotates — it is the phone that moved. The sky
