@@ -43,6 +43,13 @@ import {
 //   off the glass with a little of its speed (and a hit for the phone to
 //   buzz with, `buzzFor`), and joins the heap again where it lands.
 //
+// A glass spun about its own axis by a finger spins its sand only as far
+// as friction drags it round (`whirl`), and spinning sand is pushed out
+// from the axis, ω²r: a level surface becomes a bowl (`Bulb.bowl`, read
+// into the lean), so a fast spin piles the heap up the wall and the flow
+// brings it back down when the spin dies. Nothing in a spin about the
+// axis pushes the sand to one side.
+//
 // A glass turned over by a tap is a turning frame (`setSpin`): while it
 // turns, the sand in it feels gravity swinging round the glass and the
 // pulls of the turn itself — outward from the waist it turns about, as
@@ -165,12 +172,37 @@ export function setGravity(
     tx *= MAX_LEAN / t;
     tz *= MAX_LEAN / t;
   }
+  // The sand's own spin makes a bowl of a level surface: the pull out from
+  // the axis over gravity along it.
+  const bowl = (bulb.whirl * bulb.whirl) / (along * G);
   if (
     Math.abs(tx - bulb.tilt[0]) > 1e-3 ||
-    Math.abs(tz - bulb.tilt[1]) > 1e-3
+    Math.abs(tz - bulb.tilt[1]) > 1e-3 ||
+    Math.abs(bowl - bulb.bowl) > 1e-3 * (1 + bulb.bowl)
   ) {
-    leanTo(bulb, tx, tz);
+    leanTo(bulb, tx, tz, bowl, MAX_LEAN);
   }
+}
+
+/** How hard the glass grips the sand it turns, as a coefficient of
+ *  friction: sand on glass. */
+const SPIN_GRIP = 0.4;
+
+/**
+ * The glass spinning about its own axis at `rate` rad/s, over `dt`: the
+ * sand is not fixed to the glass, and turns with it only as friction
+ * drags it round — the floor's grip on a heap pressed to it, which spins
+ * up a disc of sand at most (4/3)·μ·g/R — so it takes up a fast spin over
+ * a moment, and runs on a moment when the glass stops. Its spin is what
+ * pushes it out from the axis (`setGravity`, `Bulb.bowl`): a slow turn
+ * leaves the heap as it lies, a fast one piles it up the wall. Call
+ * before `setGravity`.
+ */
+export function whirl(bulb: Bulb, rate: number, dt: number): void {
+  const along = Math.max(0, -bulb.g[1]);
+  const most = ((4 / 3) * SPIN_GRIP * along * G * dt) / bulb.shape.radius;
+  const d = rate - bulb.whirl;
+  bulb.whirl = Math.abs(d) <= most ? rate : bulb.whirl + Math.sign(d) * most;
 }
 
 /**
@@ -800,10 +832,10 @@ export function step(bulb: Bulb, dt: number, seed: number): void {
   else relax(bulb, 1, still * 1.35);
 }
 
-/** Whether anything in the bulb is still moving: a flow, or a grain in the
- *  air. */
+/** Whether anything in the bulb is still moving: a flow, a grain in the
+ *  air, or the sand still turning. */
 export function moving(bulb: Bulb): boolean {
-  return bulb.air.count > 0 || flowing(bulb);
+  return bulb.air.count > 0 || flowing(bulb) || bulb.whirl !== 0;
 }
 
 /** How hard a hit is felt, as the length of a buzz in milliseconds, from

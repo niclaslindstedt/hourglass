@@ -6,6 +6,7 @@ import { GLASS, SAND } from "../src/app/look.ts";
 import {
   BETA,
   G,
+  GLASS_METRES,
   airborne,
   buzzFor,
   feedsHole,
@@ -23,6 +24,7 @@ import {
   streamPath,
   turnOver,
   wallAt,
+  whirl,
 } from "../src/app/physics.ts";
 import {
   capacity,
@@ -486,5 +488,64 @@ describe("a glass turned by a tap", () => {
     // stands again.
     expect(fed).toBeGreaterThan(T / 2);
     expect(fed).toBeLessThan(T * 0.9);
+  });
+});
+
+describe("a glass spun about its own axis", () => {
+  /** Spin the glass at `rate` rad/s for `seconds`, standing upright. */
+  function spin(b: Bulb, rate: number, seconds: number): void {
+    for (let t = 0; t < seconds; t += FRAME) {
+      whirl(b, rate, FRAME);
+      setGravity(b, 0, -1, 0);
+      step(b, FRAME, t);
+    }
+  }
+  /** How deep the sand stands in ring `i`, round it. */
+  function depth(b: Bulb, i: number): number {
+    let d = 0;
+    for (let a = 0; a < b.m; a++) d += b.height[i * b.m + a]! - b.floor[i]!;
+    return d / b.m;
+  }
+
+  it("takes up the spin as friction drags the sand round, not at once, and runs on when it stops", () => {
+    const b = bulb("plate");
+    pileFill(b, capacity(b) * 0.3);
+    setGravity(b, 0, -1, 0);
+    whirl(b, 20, FRAME);
+    // At most (4/3)·μ·g/R of spin-up a second.
+    const most = ((4 / 3) * 0.4 * G * FRAME) / shape.radius;
+    expect(b.whirl).toBeCloseTo(most, 9);
+    for (let t = 0; t < 0.5; t += FRAME) whirl(b, 20, FRAME);
+    expect(b.whirl).toBe(20);
+    whirl(b, 0, FRAME);
+    expect(b.whirl).toBeCloseTo(20 - most, 9);
+    expect(moving(b)).toBe(true);
+  });
+
+  it("leaves the heap as it lies at a slow spin, and piles it up the wall at a fast one, every grain kept and none to a side", () => {
+    const slow = bulb("plate");
+    const sand = capacity(slow) * 0.3;
+    pileFill(slow, sand);
+    const lying = Float64Array.from(slow.height);
+    spin(slow, 5, 1.5);
+    let moved = 0;
+    for (let k = 0; k < lying.length; k++)
+      moved = Math.max(moved, Math.abs(slow.height[k]! - lying[k]!));
+    // Under a millimetre anywhere: a heap on the edge of its start angle
+    // is nudged, and that is all.
+    expect(moved).toBeLessThan(1e-3 / GLASS_METRES);
+
+    const fast = bulb("plate");
+    pileFill(fast, sand);
+    const wall = fast.n - 2;
+    const middle = depth(fast, 0);
+    const edge = depth(fast, wall);
+    spin(fast, 20, 1.5);
+    // Out from the axis and up the glass: ω²r against gravity.
+    expect(depth(fast, 0)).toBeLessThan(middle * 0.8);
+    expect(depth(fast, wall)).toBeGreaterThan(edge + 0.01);
+    const [x, , z] = heapCentre(fast);
+    expect(Math.hypot(x, z)).toBeLessThan(1e-6);
+    expect(Math.abs(volume(fast) - sand) / sand).toBeLessThan(HAIR);
   });
 });

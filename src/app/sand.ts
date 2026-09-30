@@ -53,8 +53,16 @@ export type Bulb = {
   tilt: [number, number];
   /** What the tilt adds to each cell's height to make a level surface read
    *  level: sand leans towards the side gravity leans to, so a settled
-   *  surface stands higher there in the bulb's own frame. */
+   *  surface stands higher there in the bulb's own frame. A spinning heap
+   *  adds a bowl to it (`bowl`). */
   lean: Float64Array;
+  /** How fast the sand turns about the glass's axis, rad/s: the glass's
+   *  spin, taken up by friction (`physics.ts`, `whirl`). */
+  whirl: number;
+  /** The bowl the spin makes of a level surface: its curvature, ω²
+   *  over gravity along the axis (a height's worth over a height
+   *  squared), with which the lean rises towards the wall as r²/2. */
+  bowl: number;
   /** How shaken the glass is, 0..1: a heap in a shaken glass holds a flatter
    *  slope than one at rest. */
   give: number;
@@ -184,6 +192,8 @@ export function createBulb(
     slope: Math.tan((reposeDegrees * Math.PI) / 180),
     tilt: [0, 0],
     lean: new Float64Array(n * m),
+    whirl: 0,
+    bowl: 0,
     give: 0,
     shape,
     g: [0, -1, 0],
@@ -211,11 +221,29 @@ export function setTilt(bulb: Bulb, tx: number, tz: number): void {
 }
 
 /** The lean alone: what `setTilt` does to the heights' reading, without
- *  touching gravity's strength. */
-export function leanTo(bulb: Bulb, tx: number, tz: number): void {
+ *  touching gravity's strength. `bowl` is a spinning heap's (`Bulb.bowl`),
+ *  its slope held to `steepest` (a tangent) where the spin would stand it
+ *  against the wall. */
+export function leanTo(
+  bulb: Bulb,
+  tx: number,
+  tz: number,
+  bowl = 0,
+  steepest = Infinity,
+): void {
   bulb.tilt = [tx, tz];
+  bulb.bowl = bowl;
+  // Past this radius the bowl's slope, bowl·r, is held at `steepest`.
+  const knee = bowl > 0 ? steepest / bowl : Infinity;
   for (let i = 0; i < bulb.n; i++) {
     const r = bulb.centre[i]!;
+    // A level surface in a spinning glass is a bowl, h = h0 + bowl·r²/2
+    // (the pull out from the axis, ω²r, over gravity along it, is its
+    // slope).
+    const dish =
+      r <= knee
+        ? (bowl * r * r) / 2
+        : (bowl * knee * knee) / 2 + steepest * (r - knee);
     for (let a = 0; a < bulb.m; a++) {
       const t = spokeAngle(bulb, a);
       // A level surface under leaning gravity stands at
@@ -223,7 +251,8 @@ export function leanTo(bulb: Bulb, tx: number, tz: number): void {
       // makes it read level: that is the lean.
       bulb.lean[i * bulb.m + a] = -(
         tx * r * Math.cos(t) +
-        tz * r * Math.sin(t)
+        tz * r * Math.sin(t) +
+        dish
       );
     }
   }

@@ -175,10 +175,24 @@ fall, pulls the floor out from under the heap: the top of it is thrown into
 the air (`toss`, once per stroke), and the grains fly, hit the glass and
 land. While the phone is being shaken the heap's friction drops (`give`),
 so it holds a flatter slope and slumps, and the flow brings it back when the
-shaking stops. A sideways drag's orbit is not a shake: the glass spins
-about its own axis, the sand is centred on it, and nothing in that spin
-pushes the sand to a side, so the sand is left where it lies. None of this touches the clock: the
-sand through is the sand the time says.
+shaking stops. None of this touches the clock: the sand through is the
+sand the time says.
+
+**A spin** about the glass's own axis — a sideways drag's orbit — is not a
+shake: nothing in it pushes the sand to a side. The sand turns with the
+glass only as friction drags it round (`whirl`: the floor's grip on a heap
+pressed to it spins a disc of sand up at most (4/3)·μ·g/R, with μ = 0.4),
+so it takes up a fast spin over a moment and runs on a moment when the
+glass stops. Spinning sand is pushed out from the axis, ω²r, so a level
+surface becomes a bowl, h = h0 + ω²r²/2g (`Bulb.bowl`, read into the lean
+the heap flows and rests against, its slope held at seventy degrees where
+it would stand against the wall). Sand is not water: the surface moves
+only where it leans past the sand's start angle against that bowl, so a
+slow turn (5 rad/s, about 50 rpm) leaves the heap
+as it lies, and a fast flick — twenty radians a second and more — piles
+the lower heap up the wall and presses the upper one out up its funnel.
+When the spin dies the bowl goes, and what stands steeper than the sand
+holds slides back; what does not stays up the glass, as sand does.
 
 **Turning over** (`turnOver`) lets each heap go of the end it rested
 against: its sand becomes grains, four a cell, that fall to the other end as a

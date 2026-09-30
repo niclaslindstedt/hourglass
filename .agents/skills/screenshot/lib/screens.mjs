@@ -148,6 +148,21 @@ export const SCREENS = {
       await h.settle(50);
     },
   },
+  flick: {
+    label: "Flicked fast",
+    async stage(page, h) {
+      // A fast sideways flick, let go: the glass spins on, and the sand,
+      // dragged round with it, is flung up the walls.
+      const box = await page.locator('[data-area="glass"]').boundingBox();
+      const y = box.y + box.height / 2;
+      const x = box.x + box.width * 0.2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + box.width * 0.6, y, { steps: 3 });
+      await page.mouse.up();
+      await h.settle(1200);
+    },
+  },
   settings: {
     label: "Settings",
     stage: settings,
