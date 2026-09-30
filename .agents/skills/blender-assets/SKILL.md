@@ -125,7 +125,12 @@ over a black world and a black core (`add`, which the app draws with
 world and a white core (`multiply`: nothing where the glass takes nothing
 away). Both are neutral outside the glass, so neither needs a clip, and
 both hold on a light page as on a dark one, which is why the painter's
-`glassLight` and its `light` flag are not needed once they load.
+`glassLight` and its `light` flag are not needed once they load. The app
+turns each into a layer that is clear outside the glass as it loads
+(`glassLayer` in `src/app/sprites.ts`), so they also hold over a canvas
+with nothing behind the glass — the preset cards — where a plain blend
+would paint the opaque sprite as a white slab. Keep rendering them opaque,
+black and white: the app does the rest.
 
 ## Materials
 

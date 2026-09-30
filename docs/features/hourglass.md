@@ -32,8 +32,9 @@ The screen, and the whole app.
 - **The light.** When the last of the sand is through, a soft glow comes up
   behind the glass, and the device buzzes if it can and the setting is on.
 - **The cog**, floating in the corner: Settings. There is no bar over the
-  glass, and no other button. With the phone held upside down the cog fades
-  out of its corner and back in at the opposite one — the top right as the
+  glass, no other button, and no pop-up notices. With the phone held upside
+  down the cog fades quietly out of its corner and back in at the opposite
+  one — the top right as the
   phone is now held — turned to read the right way up; the length, while it
   shows, moves and turns the same way.
 - **A new version**, on the website: when one has landed, a small circling
@@ -79,7 +80,12 @@ The screen, and the whole app.
   the back of the bulb and the glass keeps running.
 - **Swing the phone** and the glass swings a little behind it, the way a
   heavy thing held in a hand does: a quick turn shows you a hair of its
-  side, and it catches up, swings a touch past and settles.
+  side, and it catches up, swings a touch past and settles. The glass takes
+  up every motion of the phone smoothly rather than copying the sensor's
+  tremor, so it and the sky behind it hold steady in a hand.
+- **The screen never rotates.** Laid on its side or held upside down, the
+  page stays where it is on the phone — it is the sand that answers the
+  turn. Upside down, only the cog moves, to the corner that is now the top.
 - **Shake the phone** and the sand moves: a jerk toward the end it rests on
   throws the top of the heap into the air, the grains hit the glass and land
   again, and while the shaking lasts the heaps slump flatter — and it all

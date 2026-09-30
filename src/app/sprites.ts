@@ -40,8 +40,9 @@ export type Manifest = {
   grain?: { file: string; size: number };
 };
 
-/** A sprite with its picture loaded. */
-export type Loaded = Sprite & { image: HTMLImageElement };
+/** A sprite with its picture loaded — the picture itself, or for the
+ *  glass's two passes a layer made from it (`glassLayer`). */
+export type Loaded = Sprite & { image: CanvasImageSource };
 
 /** What one look is drawn with, once loaded. Any part may be missing —
  *  the painter draws its own for it. */
@@ -92,6 +93,72 @@ async function withImage(sprite: Sprite | undefined): Promise<Loaded | null> {
   return image ? { ...sprite, image } : null;
 }
 
+/** The glass's passes as layers, made once a file. */
+const layers = new Map<string, Promise<HTMLCanvasElement | null>>();
+
+/**
+ * One of the glass's two passes, made into a layer that holds over
+ * ANYTHING behind it — a sky, a page, or nothing at all.
+ *
+ * Blender renders them opaque: the multiply pass white wherever the glass
+ * takes nothing away, the add pass black wherever it gives nothing. Drawn
+ * with `multiply` and `lighter` over an opaque picture that is neutral,
+ * but a canvas that is transparent behind the glass (the preset cards,
+ * over whatever card they sit on) has no picture to blend with, and the
+ * blend paints the sprite as it is: a white slab behind every glass. So
+ * the darkening becomes black at the strength it darkens by (`1 − m`,
+ * which over any colour `c` leaves `c·m`, the multiply exactly, drawn
+ * plainly), and the light becomes white at the strength it lights by (its
+ * value as alpha, which `lighter` adds exactly as before) — and where the
+ * glass does nothing, both are clear.
+ */
+export function glassLayer(
+  image: HTMLImageElement,
+  pass: "add" | "multiply",
+): HTMLCanvasElement | null {
+  const c = document.createElement("canvas");
+  c.width = image.naturalWidth || image.width;
+  c.height = image.naturalHeight || image.height;
+  const ctx = c.getContext("2d");
+  if (!ctx || c.width === 0 || c.height === 0) return null;
+  ctx.drawImage(image, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  const p = data.data;
+  for (let k = 0; k < p.length; k += 4) {
+    const a = p[k + 3]! / 255;
+    const v = (0.299 * p[k]! + 0.587 * p[k + 1]! + 0.114 * p[k + 2]!) / 255;
+    const shade = pass === "multiply" ? 1 - v : v;
+    const tone = pass === "multiply" ? 0 : 255;
+    p[k] = tone;
+    p[k + 1] = tone;
+    p[k + 2] = tone;
+    p[k + 3] = Math.round(255 * a * Math.min(1, Math.max(0, shade)));
+  }
+  ctx.putImageData(data, 0, 0);
+  return c;
+}
+
+async function withGlassLayer(
+  sprite: Sprite | undefined,
+  pass: "add" | "multiply",
+): Promise<Loaded | null> {
+  if (!sprite) return null;
+  let p = layers.get(sprite.file);
+  if (!p) {
+    p = loadImage(sprite.file).then((img) => {
+      if (!img) return null;
+      try {
+        return glassLayer(img, pass);
+      } catch {
+        return null;
+      }
+    });
+    layers.set(sprite.file, p);
+  }
+  const image = await p;
+  return image ? { ...sprite, image } : null;
+}
+
 /** Everything a look is drawn with, loaded — or null while it loads and
  *  where the build carries no models at all. */
 export async function loadLookSprites(
@@ -111,8 +178,8 @@ export async function loadLookSprites(
     await Promise.all([
       withImage(t[`plate-${glass}`]),
       withImage(t["finial"]),
-      withImage(g?.add),
-      withImage(g?.multiply),
+      withGlassLayer(g?.add, "add"),
+      withGlassLayer(g?.multiply, "multiply"),
       m.grain ? loadImage(m.grain.file) : Promise.resolve(null),
       ...posts.map(withImage),
     ]);

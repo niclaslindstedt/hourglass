@@ -31,6 +31,7 @@ import {
 import { PITCH, YAW } from "./scene.ts";
 import { bodiesFor, skyLookFor, type SkyChoice, type SkyLook } from "./sky.ts";
 import { useSprites } from "./sprites.ts";
+import { pageTurn, uprightDelta } from "./upright.ts";
 import {
   deviceToEarth,
   leanStops,
@@ -52,7 +53,9 @@ import {
 } from "./timer.ts";
 import {
   createView,
+  follow,
   intoGlass,
+  matOf,
   stepView,
   viewStill,
   type View,
@@ -287,10 +290,25 @@ export function Hourglass({
     const seconds = clock / 1000;
     s.frames++;
 
-    // The phone: which way up, how it turns, how it is pushed.
+    // The phone: which way up, how it turns, how it is pushed — eased, so
+    // the glass takes up a motion the way a heavy thing in a hand does
+    // rather than copying the sensor's every tremor.
     const reading = motionRef.current.current;
     const held = press.current?.orbiting ? press.current.orbit : null;
-    stepView(s.view, reading.heard ? reading.spin : [0, 0, 0], dt, held);
+    const angles = reading.heard ? reading.angles : null;
+    const catching = follow(
+      s.view,
+      {
+        down: reading.heard ? reading.down : [0, -1, 0],
+        accel: reading.heard ? reading.accel : [0, 0, 0],
+        spin: reading.heard ? reading.spin : [0, 0, 0],
+        turn: angles
+          ? deviceToEarth(angles.alpha, angles.beta, angles.gamma)
+          : null,
+      },
+      dt,
+    );
+    stepView(s.view, s.view.gyro, dt, held);
     if (reading.heard && !s.heard) {
       // The sensor's first word says which way up the phone already is:
       // the glass is drawn that way, and nothing has been turned.
@@ -321,8 +339,8 @@ export function Hourglass({
         flipAngle = Math.PI * e;
       }
     }
-    const down: Vec3 = reading.heard ? reading.down : [0, -1, 0];
-    const accel = reading.heard ? reading.accel : [0, 0, 0];
+    const down = s.view.down;
+    const accel = s.view.accel;
     const push: Vec3 = [
       down[0] - (accel[0]! - s.view.swing * SWING_ACCEL) / 9.81,
       down[1] - accel[1]! / 9.81,
@@ -408,6 +426,7 @@ export function Hourglass({
       moving(s.source) ||
       moving(s.sink) ||
       !viewStill(s.view) ||
+      catching ||
       press.current !== null;
 
     // The sky: the sun and the moon where they are, a few times a minute.
@@ -421,7 +440,6 @@ export function Hourglass({
 
     const room = Math.min(h * 0.86, w * 2.1);
     const share = (room * sizeFor(s.run.minutes)) / h;
-    const angles = reading.heard ? reading.angles : null;
     if (stage.current) {
       stage.current.render({
         look: s.look,
@@ -431,9 +449,7 @@ export function Hourglass({
         gravity: s.gravity,
         flip: flipAngle,
         view: s.view,
-        orientation: angles
-          ? deviceToEarth(angles.alpha, angles.beta, angles.gamma)
-          : null,
+        orientation: s.view.turn ? matOf(s.view.turn) : null,
         sky: s.skyLook,
         drift: seconds * 0.004,
         seconds,
@@ -600,17 +616,20 @@ export function Hourglass({
     const c = canvas.current;
     if (!el || !c) return;
     const fit = () => {
-      const rect = el.getBoundingClientRect();
+      // The box's own size, not its bounding rectangle: a page turned back
+      // against the screen (`upright.ts`) has its sides swapped there.
+      const width = el.clientWidth;
+      const height = el.clientHeight;
       const dpr = Math.min(3, window.devicePixelRatio || 1);
-      size.current = { w: rect.width, h: rect.height, dpr };
+      size.current = { w: width, h: height, dpr };
       if (stage.current) {
-        stage.current.setSize(rect.width, rect.height, dpr);
+        stage.current.setSize(width, height, dpr);
       } else {
-        c.width = Math.round(rect.width * dpr);
-        c.height = Math.round(rect.height * dpr);
+        c.width = Math.round(width * dpr);
+        c.height = Math.round(height * dpr);
       }
-      c.style.width = `${rect.width}px`;
-      c.style.height = `${rect.height}px`;
+      c.style.width = `${width}px`;
+      c.style.height = `${height}px`;
       wake();
     };
     fit();
@@ -695,8 +714,14 @@ export function Hourglass({
   const onPointerMove = (e: PointerEvent) => {
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
-    const dx = e.clientX - p.x;
-    const dy = p.y - e.clientY;
+    // In the page's own frame: a page turned back against the screen
+    // (`upright.ts`) is dragged along its own length, not the screen's.
+    const [dx, down] = uprightDelta(
+      e.clientX - p.x,
+      e.clientY - p.y,
+      pageTurn(),
+    );
+    const dy = -down;
     if (!p.dragging && !p.orbiting) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) p.dragging = true;
       else if (Math.abs(dx) > 8) p.orbiting = true;

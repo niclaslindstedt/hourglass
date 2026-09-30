@@ -103,7 +103,9 @@ export function buildManifest(base: string): string {
     start_url: base,
     scope: base,
     display: "standalone",
-    orientation: "any",
+    // Held upright: the phone is the glass, so the page never turns with
+    // it (`src/app/upright.ts` does the same for a tab, which cannot lock).
+    orientation: "portrait-primary",
     background_color: "#12101a",
     theme_color: "#12101a",
     icons: [

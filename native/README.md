@@ -88,9 +88,13 @@ EXPO_PUBLIC_HOURGLASS_URL=https://hourglass.niclaslindstedt.se/preview/ npm run 
   have left. The origin is stable across app updates, so such a worker would
   keep answering from its precache after a store update had already unpacked
   the new one.
-- **The screen stays portrait.** `app.config.js` locks the orientation: the
+- **The screen stays portrait, the right way up.** `app.config.js` locks the
+  orientation — on iOS through `UISupportedInterfaceOrientations` directly,
+  because Expo's `"portrait"` also allows upside down there, and with
+  `requireFullScreen` so the iPad is not asked to turn for multitasking. The
   glass stands up, and turning the phone is how the sand is turned — a screen
-  that rotated with the phone would undo the one gesture the sensor is for.
+  that rotated with the phone, even by half a turn, would undo the one
+  gesture the sensor is for. Held upside down, only the cog changes corners.
 
 ## Releasing
 

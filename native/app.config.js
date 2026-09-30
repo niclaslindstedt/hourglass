@@ -48,8 +48,21 @@ module.exports = () => ({
 
     ios: {
       supportsTablet: true,
+      // The iPad would otherwise have to turn with every orientation to
+      // share its screen; this app holds one, so it takes the whole screen.
+      requireFullScreen: true,
       bundleIdentifier: BUNDLE_ID,
       infoPlist: {
+        // Portrait, and only the right way up. Expo's `orientation:
+        // "portrait"` lets iOS turn the screen upside down as well, which
+        // is the one turn this app is about: held upside down, the sand
+        // runs the other way and only the cog changes corners — the page
+        // itself never spins round. (Expo notes at prebuild that this
+        // overrides `orientation` on iOS; that is the point.)
+        UISupportedInterfaceOrientations: ["UIInterfaceOrientationPortrait"],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+        ],
         // The bundled build is served over plain HTTP on the loopback
         // interface. ATS is left ON — only localhost is excepted, so nothing
         // else in the app may fall back to cleartext.

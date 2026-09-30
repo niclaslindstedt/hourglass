@@ -204,6 +204,24 @@ settles. A finger dragged sideways turns it about its own axis (the
 pure and clock-free, and both are handed to the sand as part of the gravity
 it feels.
 
+Under both, **the follow** (`follow`): the sensors report sixty times a
+second with a tremor in every reading, and a glass moved by each raw one
+jitters. So what the glass feels of the phone — gravity, the push, the spin
+that kicks the lag, and the phone's stance in the world that turns the sky —
+eases toward each reading over a few hundredths of a second (gravity
+0.12 s, the push 0.05 s, the spin 0.08 s, the stance 0.09 s, the last as a
+quaternion slerp). A turn or a shake still reads as one; the tremor does
+not. The lag's spring is damped enough to go a little past centre once and
+settle, rather than wobble.
+
+**The page never turns** (`upright.ts`). The phone and desktop apps lock
+their windows to portrait, the right way up; an installed web app asks in
+its manifest; a browser tab, which cannot lock, is turned back against the
+screen's rotation on a touch screen (`data-turned` on `<html>`, `#root`
+rotated and its safe-area insets turned with it in `styles.css`), so it
+stands in the phone's own frame — the frame the sensors report in. Held
+upside down, only the cog changes corners, fading out slowly and back in.
+
 ## The sky
 
 The glass stands under a sky, and the sky lights it. `astronomy.ts` works
@@ -267,7 +285,12 @@ foreshortened into the band it is in a real sky, drifting slowly; stars
 sized in pixels, and a faint band of the Milky Way; the sun's disc; and the
 moon's, lit on its sun side as far as its phase says, with a halo. It goes
 through the same tone mapping as every lit surface, so its reflection in the
-glass meets it without a seam.
+glass meets it without a seam. Under the horizon it is the land, in the
+haze's colour and only a little darker, reached gently over thirty degrees:
+the glass mirrors it — the waist's downward-facing walls most of all, where
+a tight curve squeezes a wide sweep of the dome into a sliver — and a dark
+land with a hard edge made black blades there that flickered as the phone
+moved.
 
 **The light** is the sky's. The key is a directional light — the sun by day,
 the moon by night — that casts the frame's shadows onto the sand; a
@@ -369,7 +392,11 @@ surfaces. The glass is rendered twice over a solid core standing in for the
 sand — its highlights over black, which the painter adds, and its darkening
 over white, which the painter multiplies — so what is inside the glass is
 still the painter's to draw, and both passes hold on a light page as on a
-dark one.
+dark one. On load each pass is made into a layer that is clear where the
+glass does nothing (`glassLayer` in `sprites.ts`: the darkening as black at
+its strength, the light as white at its), because a blend over a canvas
+that is transparent behind the glass — the preset cards — has nothing to
+blend with and would paint the opaque sprite as it is: a white slab.
 
 Where a sprite is missing or has not loaded, the painter draws its own, so
 a build without models, or the first frame before they arrive, is the same

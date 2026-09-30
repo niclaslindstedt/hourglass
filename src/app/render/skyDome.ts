@@ -100,8 +100,13 @@ export function createSkyDome(
         float mu = max(dot(dir, uSunDir), 0.0);
         // The aureole round the sun, strongest low on the dome.
         c += uGlow * (0.22 * pow(mu, 6.0) + 0.5 * pow(mu, 48.0)) * (1.0 - 0.6 * up);
-        // Under the horizon: the land, in the haze's colour, darker down.
-        if (dir.y < 0.0) c = mix(c, uHorizon * 0.45, clamp(-dir.y * 5.0, 0.0, 1.0));
+        // Under the horizon: the land, in the haze's colour, a little darker
+        // the further down — gently, over thirty degrees. The glass mirrors
+        // it (the waist's downward-facing walls most of all, and a tight
+        // curve squeezes a wide sweep of it into a sliver), so a dark land
+        // with a hard edge under the horizon became black blades there that
+        // flickered with every move of the phone.
+        if (dir.y < 0.0) c = mix(c, uHorizon * 0.72, smoothstep(0.0, 0.5, -dir.y));
         return c;
       }
 
