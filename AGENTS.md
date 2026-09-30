@@ -208,7 +208,9 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   heap into grains that fall to the other end (mirrored for a tap, not for
   the phone); `setSpin` makes a tap's turn a turning frame — centrifugal,
   Euler and Coriolis pulls where each cell and grain is, `letGo` for the
-  cells the pull takes off their floor. Hits on the glass count into `bulb.hits`, and `buzzFor` makes
+  cells the pull takes off their floor; `whirl` spins the sand up with the
+  glass's own spin by friction, and the spin makes a bowl of its surface
+  (`Bulb.bowl`). Hits on the glass count into `bulb.hits`, and `buzzFor` makes
   a vibration of them. `GLASS_METRES` sets gravity's scale. Pure and
   clock-free: `dt` is a parameter; the clock is not in here.
 - `src/app/view.ts` — how the glass hangs in the phone: a spring-damper
@@ -218,7 +220,8 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   glass feels of the phone (gravity, the push, the spin, its stance in the
   world as a quaternion) toward each reading, so the sensor's tremor never
   reaches the picture; `intoGlass` takes gravity into the glass's frame;
-  the orbit never pushes the sand. Pure and clock-free.
+  the orbit's spin (`orbitRate`) reaches the sand through `whirl`. Pure
+  and clock-free.
 - `src/app/astronomy.ts` — the sun's and the moon's positions and the
   moon's phase (the standard low-precision formulas, as suncalc has them),
   clear-sky illuminance by the sun's altitude and the moon's by altitude and
@@ -295,7 +298,8 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   (`turnOver`, the stage's `turned`) and landed before the turn ends
   (`land`); a drag up
   or down is a longer or a shorter glass, one length per `DRAG_STEP_PX`; a
-  drag sideways is the orbit (which leaves the sand where it lies); the
+  drag sideways is the orbit (a fast one flings the sand up the walls,
+  `whirl`); the
   wheel and the arrow keys do the same. A turn of the phone turns the
   **run** without turning the picture; a lean past `STOP_LEAN` to a side
   halts it until the glass is stood up (`halt` / `resume`).

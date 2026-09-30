@@ -12,6 +12,7 @@ import {
   setGravity,
   setSpin,
   step as stepSand,
+  whirl,
   streamPath,
   turnOver,
   type StreamPath,
@@ -389,6 +390,9 @@ export function Hourglass({
     const spin = halfTurned(intoGlass(s.view, [0, 0, spinRate]), swapped);
     const alpha = halfTurned(intoGlass(s.view, [0, 0, spinAccel]), swapped);
     for (const bulb of [s.source, s.sink]) {
+      // The finger's spin about the glass's own axis, taken up by the sand
+      // as friction allows.
+      whirl(bulb, s.view.orbitRate, dt);
       setSpin(bulb, s.flip ? [up * spin[0], spin[1], up * spin[2]] : null, [
         up * alpha[0],
         alpha[1],

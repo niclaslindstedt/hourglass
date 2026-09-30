@@ -30,10 +30,10 @@ import type { Vec3 } from "./useMotion.ts";
 // the world — eases toward each reading over a few hundredths of a second,
 // the way a heavy thing in a hand takes up a motion rather than copying
 // it. Short enough that a turn or a shake still reads as that, long enough
-// that the tremor does not. The sand is told what they do to gravity. The
-// finger's orbit is not: a glass spun about its own axis carries the sand,
-// round and centred on that axis, round with it, and nothing in a spin
-// about the axis pushes it to a side.
+// that the tremor does not. The sand is told what they do to gravity, and
+// how fast the finger spins the glass about its own axis (`orbitRate`),
+// which the sand takes up by friction and is pushed out from the axis by
+// (`whirl` in `physics.ts`) — all round, never to a side.
 // Pure and clock-free: `dt` is a parameter.
 
 /** A rotation as a unit quaternion, x, y, z, w. */

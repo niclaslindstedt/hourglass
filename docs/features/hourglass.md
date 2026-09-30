@@ -60,9 +60,11 @@ The screen, and the whole app.
   same, and `Space` or `Enter` turns it over.
 - **Drag sideways** and the glass turns about its own axis, to see the sand
   from another side; let go and it spins on, slows and comes back to face
-  you. The left and right arrow keys nudge it. The sand turns with the
-  glass and stays where it lies: it sits on the axis the glass spins about,
-  and a spin about that axis pushes it to no side.
+  you. The left and right arrow keys nudge it. The sand is dragged round
+  with the glass by friction, a moment behind: a slow turn leaves it as it
+  lies, and a fast flick flings it out from the middle and up the walls of
+  the glass — all round, never to one side — where it stays once the glass
+  stops, unless it stands steeper than sand will.
 - **Turn the phone** over and the sand falls to the other end and runs the
   other way, without the picture moving — it is the phone that moved, not
   the glass. The bulb that is now lower on the phone is the one the sand

@@ -26,6 +26,7 @@ make shots ARGS="--screen glass --device phone"   # one frame
 make shots ARGS="--variant presets --screen glass --group screen --cols variant --wrap 5"   # every preset, one sheet
 make shots ARGS="--variant skies --screen glass --group screen --cols variant"             # day, dusk, night, now
 make shots ARGS="--screen sensors"                # upside down, leaned, laid flat, shaken
+make shots ARGS="--screen flick --device desktop" # a fast sideways flick: the sand flung up the walls
 make shots ARGS="--screen around --variant sky-day"   # the phone turned: the sun's glint in the glass
 make shots ARGS="--device phone,desktop --screen glass,settings"
 make shots ARGS="--settings '{\"preset\":\"custom\",\"custom\":{\"top\":\"steel\",\"glass\":\"bell\",\"sand\":\"gold\"}}'"
@@ -47,12 +48,12 @@ single frame (`--scale 2`) when a grain, a glint or an edge needs judging.
 
 ## What varies
 
-| Axis      | Values                                                                                                                                                                                                                                        | Default                |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `device`  | `phone` 440×956 · `phone-small` 375×667 · `phone-landscape` · `tablet-mini` · `tablet` · `tablet-landscape` · `desktop` 1440×900 · `desktop-small` · `desktop-wide`                                                                           | `phone,tablet,desktop` |
-| `theme`   | `dark` · `light` · `system-light` · `system-dark` (sets: `both`, `all`) — Settings' and the cog's; the glass fills the screen with its sky either way                                                                                         | `dark`                 |
-| `variant` | `default` (the default preset on a fixed day sky) · a preset id (`study` … `treasure`) · `sky-day` · `sky-dusk` · `sky-night` · `sky-now` · `one-minute` · `two-hours` · `dev` (sets: `presets`, `skies`, `sizes`, `all`)                     | `default`              |
-| `screen`  | `glass` (running) · `full` · `done` · `turning` · `turned` · `upside` · `lean-right` · `lean-back` · `flat` · `shake` · `orbit` · `turned-left` · `turned-right` · `sky-up` · `settings` (sets: `states`, `sensors`, `turn`, `around`, `all`) | `default` set          |
+| Axis      | Values                                                                                                                                                                                                                                                  | Default                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `device`  | `phone` 440×956 · `phone-small` 375×667 · `phone-landscape` · `tablet-mini` · `tablet` · `tablet-landscape` · `desktop` 1440×900 · `desktop-small` · `desktop-wide`                                                                                     | `phone,tablet,desktop` |
+| `theme`   | `dark` · `light` · `system-light` · `system-dark` (sets: `both`, `all`) — Settings' and the cog's; the glass fills the screen with its sky either way                                                                                                   | `dark`                 |
+| `variant` | `default` (the default preset on a fixed day sky) · a preset id (`study` … `treasure`) · `sky-day` · `sky-dusk` · `sky-night` · `sky-now` · `one-minute` · `two-hours` · `dev` (sets: `presets`, `skies`, `sizes`, `all`)                               | `default`              |
+| `screen`  | `glass` (running) · `full` · `done` · `turning` · `turned` · `upside` · `lean-right` · `lean-back` · `flat` · `shake` · `orbit` · `flick` · `turned-left` · `turned-right` · `sky-up` · `settings` (sets: `states`, `sensors`, `turn`, `around`, `all`) | `default` set          |
 
 `--state full|running|done` and `--at <fraction>` set the run every frame
 opens on (default running, 0.42 of the way). `sky-now` draws the sky at the
