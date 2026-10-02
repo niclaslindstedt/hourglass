@@ -51,6 +51,7 @@ Under the **⚙** in the corner. Persisted per device in localStorage
 | Custom: the glass      | `custom.glass` | Teardrop, Sphere, Cone, Slim, Antique, Bell              | Teardrop |
 | Custom: the sand       | `custom.sand`  | Quartz, White, Black, Red, Blue, Gold, Rose, Green       | Quartz   |
 | Length                 | `minutes`      | 1–10 min by the minute, 15, 20, 25, 30, 45, 60, 90, 120  | 5 min    |
+| Size (by a pinch)      | `zoom`         | 0.4–2.5 × the length's own size                          | 1        |
 | Buzz when it runs out  | `vibrate`      | on / off                                                 | on       |
 | Keep the screen on     | `awake`        | on / off                                                 | on       |
 | Turn with the phone    | `sensor`       | on / off                                                 | on       |
@@ -60,7 +61,9 @@ Under the **⚙** in the corner. Persisted per device in localStorage
 | Capture console output | `captureLogs`  | on / off (developer mode)                                | off      |
 
 The length is also set on the glass itself, by dragging; the two are one
-setting. **Feel the sand** buzzes when the sand hits the glass, on a device
+setting. The size has no row in Settings: it is a pinch on the glass, or the
+wheel over it, and only ever changes how big the glass is drawn — never the
+length or the run. **Feel the sand** buzzes when the sand hits the glass, on a device
 that can (`navigator.vibrate` — Android; not Safari on an iPhone). **The
 sky** is the sky behind the glass and the light on it: **Now** is the sky
 outside at this moment, placed by the device's time zone (never by asking

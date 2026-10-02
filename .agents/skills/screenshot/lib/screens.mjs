@@ -30,6 +30,28 @@ async function hold(page, h, beta, gamma, alpha = 0) {
   await h.tilt(beta, gamma, alpha);
 }
 
+/** The phone rolled round in its own plane, the way an hourglass is
+ *  turned over by hand, from upright to `deg` degrees, slowly: a reading
+ *  every few degrees (beta 90 − θ, gamma 90 is the screen's plane turned
+ *  by θ). */
+async function roll(page, h, deg, perStep = 40) {
+  await h.tilt(90, 0, 0);
+  await h.settle(150);
+  for (let th = 3; th <= deg; th += 3) {
+    await h.tilt(90 - th, 90, 0);
+    await h.settle(perStep);
+  }
+}
+
+/** A press held on the glass's middle for `ms`. */
+async function holdDown(page, ms) {
+  const box = await page.locator('[data-area="glass"]').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(ms);
+  await page.mouse.up();
+}
+
 async function settings(page, h) {
   await page
     .getByRole("button", { name: "Settings", exact: true })
@@ -163,6 +185,73 @@ export const SCREENS = {
       await h.settle(1200);
     },
   },
+  "roll-75": {
+    label: "Rolled slowly to 75°",
+    async stage(page, h) {
+      await roll(page, h, 75);
+      await h.settle(600);
+    },
+  },
+  "roll-90": {
+    label: "Rolled slowly onto its side",
+    async stage(page, h) {
+      await roll(page, h, 90);
+      await h.settle(600);
+    },
+  },
+  "roll-102": {
+    label: "Rolled slowly to 102°",
+    async stage(page, h) {
+      await roll(page, h, 102);
+      await h.settle(600);
+    },
+  },
+  "roll-120": {
+    label: "Rolled slowly to 120°",
+    async stage(page, h) {
+      await roll(page, h, 120);
+      await h.settle(600);
+    },
+  },
+  "roll-180": {
+    label: "Rolled slowly upside down",
+    async stage(page, h) {
+      await roll(page, h, 180);
+      await h.settle(1200);
+    },
+  },
+  resetting: {
+    label: "Held: resetting",
+    async stage(page, h) {
+      await holdDown(page, 950);
+      await h.settle(50);
+    },
+  },
+  reset: {
+    label: "Held: reset",
+    async stage(page, h) {
+      await holdDown(page, 700);
+      await h.settle(1500);
+    },
+  },
+  "zoom-in": {
+    label: "Wheel: bigger",
+    async stage(page, h) {
+      const box = await page.locator('[data-area="glass"]').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      for (let k = 0; k < 4; k++) await page.mouse.wheel(0, -100);
+      await h.settle(900);
+    },
+  },
+  "zoom-out": {
+    label: "Wheel: smaller",
+    async stage(page, h) {
+      const box = await page.locator('[data-area="glass"]').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      for (let k = 0; k < 4; k++) await page.mouse.wheel(0, 100);
+      await h.settle(900);
+    },
+  },
   settings: {
     label: "Settings",
     stage: settings,
@@ -175,6 +264,8 @@ export const SCREEN_SETS = {
   sensors: ["upside", "lean-right", "lean-back", "flat", "shake", "sky-up"],
   turn: ["turning", "turned", "upside"],
   around: ["glass", "turned-left", "turned-right", "lean-back"],
+  roll: ["roll-75", "roll-90", "roll-102", "roll-120", "roll-180"],
+  gestures: ["glass", "resetting", "reset", "zoom-in", "zoom-out"],
   all: Object.keys(SCREENS),
 };
 

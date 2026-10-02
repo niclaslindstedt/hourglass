@@ -15,6 +15,7 @@ describe("stored settings", () => {
       preset: "custom",
       custom: { top: "brass", glass: "cone", sand: "gold" },
       minutes: 45,
+      zoom: 1.6,
       vibrate: false,
       awake: false,
       sensor: false,
@@ -33,6 +34,7 @@ describe("stored settings", () => {
         preset: "boudoir",
         custom: { top: "marble", glass: "cone" },
         minutes: 17,
+        zoom: "huge",
         vibrate: "yes",
         sky: "aurora",
       }),
@@ -41,6 +43,7 @@ describe("stored settings", () => {
     expect(parsed.preset).toBe("study");
     expect(parsed.custom).toEqual({ ...LOOK_PRESET.study, glass: "cone" });
     expect(parsed.minutes).toBe(15);
+    expect(parsed.zoom).toBe(1);
     expect(parsed.vibrate).toBe(true);
     expect(parsed.awake).toBe(true);
     expect(parsed.sensor).toBe(true);

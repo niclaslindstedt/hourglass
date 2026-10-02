@@ -186,8 +186,11 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   short end and nothing at the long), and where a run stands — `Run` is the
   share of the sand already through when the glass was last turned and
   when that was, so `passed(run, now)` is a function of the wall clock and
-  never a count of frames. `turn` and `halt` are the two edits. Pure and
-  clock-free; `now` is a parameter.
+  never a count of frames. `turn`, `halt` and `reset` are the edits
+  (`resetting` is where the sand stands while a reset draws it down, by the
+  clock, over `RESET_MS`). `shownSize` is how big the glass is drawn: its
+  length's size times the pinch's zoom (`clampZoom`, `zoomFor`), which never
+  touches the length or the run. Pure and clock-free; `now` is a parameter.
 - `src/app/physics.ts` — the sand **in motion**, in two layers (after the
   "shallow sand" height-field models and Savage–Hutter's depth-averaged
   avalanche equations). The dense layer is the heap's cells plus a flowing
@@ -204,9 +207,14 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   air (`Bulb.air`, up to `AIR_CAP`), ballistic under the gravity the glass
   feels (`setGravity`: the Earth's less the phone's own acceleration),
   bouncing off the wall and landing volume-exactly; `toss` throws them up
-  when the glass is jerked toward its resting end, `turnOver` turns each
+  when the glass is jerked toward its resting end, `turnOver` (in
+  `turnOver.ts`, off the grains this module flies) turns each
   heap into grains that fall to the other end (mirrored for a tap, not for
-  the phone); `setSpin` makes a tap's turn a turning frame — centrifugal,
+  the phone) — all but its columns full from end to end, the sand lying
+  along the side wall of a glass on its side, which are the same column
+  either way up and stay as they are; the heap leans to `MAX_LEAN`, 88°,
+  so a glass on its side has its sand along the wall, level with the
+  world; `setSpin` makes a tap's turn a turning frame — centrifugal,
   Euler and Coriolis pulls where each cell and grain is, `letGo` for the
   cells the pull takes off their floor; `whirl` spins the sand up with the
   glass's own spin by friction, and the spin makes a bowl of its surface
@@ -269,8 +277,9 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   for a point and a ring in it, `LIGHT`, `rimEdge` (also read by
   `sandMesh.ts`), and `surfaceFacets`, a bulb's cells as lit quads. Pure.
 - `src/app/frame.ts` — what one flat-painted frame is made of.
-- `src/app/paint.ts`, `paintGlass.ts`, `paintSand.ts` — **the flat
-  picture**: the preset cards in Settings (`MiniGlass`) and the fallback
+- `src/app/paint.ts`, `paintGlass.ts`, `paintSand.ts`, `paintFlat.ts` — **the flat
+  picture** (`paintFlat.ts` is one whole frame of it, as the glass's loop
+  draws it, and `pageIsLight`): the preset cards in Settings (`MiniGlass`) and the fallback
   where WebGL cannot start or is lost. Back to front: the shadow on the
   table, the bottom plate, the posts behind the glass, the glass's back
   wall, the sand (facets under a grain pattern one speck to a device
@@ -299,13 +308,23 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   (`land`); a drag up
   or down is a longer or a shorter glass, one length per `DRAG_STEP_PX`; a
   drag sideways is the orbit (a fast one flings the sand up the walls,
-  `whirl`); the
-  wheel and the arrow keys do the same. A turn of the phone turns the
-  **run** without turning the picture; a lean past `STOP_LEAN` to a side
-  halts it until the glass is stood up (`halt` / `resume`).
+  `whirl`); the arrow keys do the same. A pinch (two fingers, Safari's
+  `gesture*` events, or the wheel — with Ctrl, a trackpad's pinch) and `+`
+  / `−` zoom the glass (`shownSize`), kept in the settings once the gesture
+  rests; a press held still for `LONG_PRESS_MS` (or `Backspace`) resets it,
+  the rest of the sand drawn down by `resetting` and the run standing still
+  (`reset`). A turn of the phone turns the **run** without turning the
+  picture — decided off the eased gravity in the glass's frame
+  (`nextGravity`), so the sand changes ends when the heaps feel gravity
+  cross; a lean past `STOP_LEAN` to a side halts it until the glass is
+  stood up (`halt` / `resume`). Every new run the glass makes goes out
+  through `onRun` exactly as the glass has it, so it comes back as a prop
+  recognised as its own; a run from anywhere else that says a different
+  amount of sand is through rebuilds the heaps cold (`build`).
 - `src/app/useMotion.ts` — the phone's readings: the full gravity vector in
   the phone's frame (`deviceDown`: x right, y up the screen, z out of it),
-  which way up the glass is — flipped only past a wide hysteresis — the
+  which way up the glass is — flipped only past `FLIP_AT`, the angle sand
+  starts to slide down glass at (about 11° past level) — the
   lean `{x, z}` (`leanOf`, to a side and back or forward, capped as a whole
   at 70°) and `leanStops` on x alone (past 60°, on its side); the
   acceleration with gravity taken out (for throwing sand, `shakeOf`), the
@@ -318,11 +337,15 @@ like SVG's `focusable` as `"false"` rather than a JSX boolean.
   whenever the setting is on. **The readings never leave the frame they
   decide** — nothing is stored, nothing is sent — and they live in a ref
   rather than in state.
+- `src/app/useZoom.ts` — the pinch: two fingers (from `Hourglass.tsx`'s
+  pointers), Safari's `gesture*` events, the wheel (with Ctrl, a trackpad's
+  pinch) and `+` / `−`. The zoom lives in a ref while a gesture is under way
+  and is kept in the settings once it rests; it is a size and nothing else.
 - `src/app/useRun.ts` — the run, persisted per device (`hourglass:run`) so
   the sand is where it was when the tab comes back; a new glass when the
   length changes.
 - `src/app/useAppSettings.ts` — the settings: theme, which preset or the
-  custom look, the length, the buzz, keeping the screen on, the sensor,
+  custom look, the length, the pinch's `zoom`, the buzz, keeping the screen on, the sensor,
   `haptics` ("Feel the sand"), `sky` (`now` / `day` / `dusk` / `night`), and
   the developer switches. Per device, clamped on read.
 - `src/app/HourglassPicker.tsx` — Settings' picker: the ten preset cards,
@@ -406,14 +429,19 @@ it, and the Settings cog fades out of its corner and back in at the opposite
 one (bottom-left in screen terms, turned 180° so it reads the right way up —
 `App.tsx`, `.app-cog-upside` in `styles.css`); the length label moves and
 turns the same way. Either way the sand falls as grains to the other end and
-lands (`turnOver` in `physics.ts` — mirrored left for right for a tap,
+lands (`turnOver` in `turnOver.ts` — mirrored left for right for a tap,
 because the picture turned; not for the phone, the same glass in the same
-place). A tap's run starts as of the tap, and its sand runs from the half
+place) — but for what lies along the side wall from end to end, which a
+phone turned slowly round has put there and which stays where it lies, so a
+slow turn hands the heap over without a jump. A tap's run starts as of the tap, and its sand runs from the half
 turn on, once the hole is fed (`feedsHole` in `physics.ts`), so the
 stream starts before the turn ends; and the frame, unlike the glass, is
 not the same either way up, so it stays as the turn left it (`upended`)
 rather than snapping back. Both go through `turn` in `timer.ts` and `land` in `Hourglass.tsx`;
-do not add a third path.
+do not add a third path. Either way the turned run goes to the app through
+`onRun` exactly as the glass made it: a run the app recomputed a moment
+later would read as someone else's and rebuild the heaps from the clock,
+throwing the falling sand away.
 
 ### The phone is the glass
 
@@ -523,14 +551,14 @@ job only type-checks and runs `npx expo-doctor`. See `native/README.md` and
 | A new top, glass, sand or preset                                       | Run the `add-hourglass-look` skill (`.agents/skills/add-hourglass-look/`): `src/app/look.ts` (id + spec, walked by `tests/look_test.ts`), a string in `en.ts`, a new post style, finial or finish in `render/parts.ts` and `paint.ts`, and the `screenshot` skill to look at it — named for where you would find one, never for a maker                                                    |
 | A change to a glass's shape                                            | `src/app/look.ts` (the profile points) + `glass.ts` (the interpolation and the inverses, tested in `tests/glass_test.ts`) — never a second curve in the paint or the stage                                                                                                                                                                                                                 |
 | A change to how sand rests or runs                                     | `src/app/sand.ts` (the heightfield, tested in `tests/sand_test.ts` at real volumes) and `physics.ts` (the flowing layer and the grains in the air, tested in `tests/physics_test.ts`) — never in the loop, never in the renderer, and never a fraction drawn as a pile                                                                                                                     |
-| A change to how long a glass runs, or how big it is                    | `src/app/timer.ts` (`DURATIONS`, `sizeFor`, tested in `tests/timer_test.ts`) + the length chips in `SettingsScreen.tsx`                                                                                                                                                                                                                                                                    |
+| A change to how long a glass runs, or how big it is                    | `src/app/timer.ts` (`DURATIONS`, `sizeFor`, `shownSize`, tested in `tests/timer_test.ts`) + the length chips in `SettingsScreen.tsx`                                                                                                                                                                                                                                                       |
 | A change to what a press or a drag on the glass does                   | `src/app/Hourglass.tsx` (the gestures) with the edit as a pure function in `timer.ts`, or in `view.ts` for the orbit (tested in `tests/view_test.ts`)                                                                                                                                                                                                                                      |
 | A change to how the glass is drawn or lit                              | `src/app/render/stage.ts` (the camera, the lights, the environment, the sand's meshes), `render/parts.ts` (the frame and the glass, off `look.ts`), `render/textures.ts` (wood and sand, drawn from a hash), `sandMesh.ts` (the heap's mesh, tested in `tests/sandMesh_test.ts`) — colours come from the spec or the sky, never from a screen; nothing fetched but this origin's own files |
 | A change to the flat picture (the preset cards, the no-WebGL fallback) | `src/app/scene.ts` (the camera and the light, tested), `paintGlass.ts` (the glass), `paintSand.ts` (the sand and the stream) or `paint.ts` (the frame and the order) — and the painter's own drawing stays the fallback under every sprite                                                                                                                                                 |
 | A change to the sky                                                    | `src/app/astronomy.ts` (the sun, the moon, their light, `placeOfZone`), `sky.ts` (the colours and the lights, `SkyChoice`) — both tested in `tests/sky_test.ts` at real places and moments — and `render/skyDome.ts` (the shader); `zones.ts` is generated from the tz database's `zone.tab`, never hand-edited, and the place never comes from a location lookup or the network           |
 | A better plate, post, finial, glass or grain for the flat picture      | Run the `blender-assets` skill (`.agents/skills/blender-assets/`): `scripts/blender/hourglass.py` and `lib.py`, off numbers the driver takes from `look.ts` / `glass.ts`, then `make blender` into `public/models/` (held to `look.ts` by `tests/sprites_test.ts`) — never a dimension typed in the builder                                                                                |
 | A change to how the phone turns, tilts or shakes the glass             | `src/app/useMotion.ts` (the readings, the hysteresis, the lean and its cap, the shake, `deviceToEarth` — tested in `tests/motion_test.ts`) + `physics.ts` for what the sand does with it and `view.ts` for how the glass swings — never a second reading of the sensor, and never a reading kept                                                                                           |
-| A change to what a tilt or a shake does to the sand                    | `src/app/physics.ts` (`setGravity`, `toss`, `give`, `turnOver`, `buzzFor` — tested in `tests/physics_test.ts` at real angles) + `Hourglass.tsx` for when the run halts — never in the renderer                                                                                                                                                                                             |
+| A change to what a tilt or a shake does to the sand                    | `src/app/physics.ts` (`setGravity`, `toss`, `give`, `buzzFor`) and `turnOver.ts` (tested in `tests/physics_test.ts` at real angles) + `Hourglass.tsx` for when the run halts — never in the renderer                                                                                                                                                                                       |
 | A new setting                                                          | `src/app/useAppSettings.ts` (shape + clamping, tested in `tests/settings_test.ts`) + a `Section` in `SettingsScreen.tsx`                                                                                                                                                                                                                                                                   |
 | Something only the desk does                                           | Behind `useDesk()` in `App.tsx`, or a `lg:` class / `@media (min-width: 64rem)` rule — the phone shell stays as it is                                                                                                                                                                                                                                                                      |
 | A new developer-only affordance                                        | `src/app/dev/`, revealed behind `settings.devMode` in `SettingsScreen.tsx`                                                                                                                                                                                                                                                                                                                 |
@@ -643,8 +671,9 @@ with `[Learn more](feature:<slug>)`.
   beside the cog and only while one waits — `UpdateGlyph.tsx`.) A new _action_ is a gesture on the glass
   or a row in Settings, never a button beside the glass.
 - **The glass is the switch, and the whole glass.** A tap anywhere on the
-  hourglass turns it over. A drag on it sets the length. Do not add a start
-  button, a reset button or a length field next to it.
+  hourglass turns it over. A drag on it sets the length, a pinch its size,
+  and a press held on it resets it. Do not add a start button, a reset
+  button or a length field next to it.
 - **No digits.** The glass says how far a run has come the way an hourglass
   does — by how much sand is left — and the only figure on the screen is the
   length, shown for a moment when it changes. A countdown ticking beside the
@@ -653,9 +682,11 @@ with `[Learn more](feature:<slug>)`.
   shows: the sand running out is an empty bulb, a soft light and a buzz,
   and a new version is the glyph beside the cog. The framework's toast
   viewport is not mounted.
-- **The size is the length.** A longer glass is a bigger glass (`sizeFor`),
-  and nothing else about the layout moves: the glass is centred and the room
-  it takes is the only thing a length changes.
+- **The size is the length, and a pinch.** A longer glass is a bigger glass
+  (`sizeFor`), and a pinch or the wheel makes any glass bigger or smaller to
+  taste (`shownSize`) without touching the length or the run. Nothing else
+  about the layout moves: the glass is centred and the room it takes is the
+  only thing either changes.
 - **No dependency creep.** The framework, Preact, three.js (the glass's
   renderer and the only 3D dependency — approved by the owner; never a
   second one beside it), one font (Inter, an `@fontsource` package imported

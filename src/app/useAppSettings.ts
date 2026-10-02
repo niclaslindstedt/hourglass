@@ -12,7 +12,7 @@ import {
   type LookPreset,
 } from "./look.ts";
 import { SKY_CHOICES, type SkyChoice } from "./sky.ts";
-import { DEFAULT_MINUTES, clampMinutes } from "./timer.ts";
+import { DEFAULT_MINUTES, clampMinutes, clampZoom } from "./timer.ts";
 
 // The app's settings: which of the two themes is on, which hourglass is on
 // the screen, how long it runs, and what happens when it runs out. Per
@@ -32,6 +32,10 @@ export type AppSettings = {
   custom: Look;
   /** How long the glass runs, in minutes. Also how big it is. */
   minutes: number;
+  /** How much bigger or smaller than its length's own size the glass is
+   *  shown, as a factor: set by a pinch or the wheel, and nothing to do
+   *  with the time. */
+  zoom: number;
   /** A buzz when the sand has run out, where the device can. */
   vibrate: boolean;
   /** Keep the screen from sleeping while the sand runs. */
@@ -55,6 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   preset: DEFAULT_LOOK_PRESET,
   custom: LOOK_PRESET[DEFAULT_LOOK_PRESET],
   minutes: DEFAULT_MINUTES,
+  zoom: 1,
   vibrate: true,
   awake: true,
   sensor: true,
@@ -88,6 +93,7 @@ export function parseSettings(raw: string): AppSettings {
         : oneOf(LOOK_PRESET, merged.preset, DEFAULT_LOOK_PRESET),
     custom: clampLook(merged.custom),
     minutes: clampMinutes(merged.minutes),
+    zoom: clampZoom(merged.zoom),
     vibrate: merged.vibrate !== false,
     awake: merged.awake !== false,
     sensor: merged.sensor !== false,

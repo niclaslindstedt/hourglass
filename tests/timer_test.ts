@@ -3,20 +3,30 @@ import { describe, expect, it } from "vitest";
 
 import {
   DURATIONS,
+  RESET_MS,
+  SHOWN_MAX,
+  SHOWN_MIN,
   SIZE_MAX,
   SIZE_MIN,
+  ZOOM_MAX,
+  ZOOM_MIN,
   clampMinutes,
   clampRun,
+  clampZoom,
   halt,
   isRunning,
   newRun,
   passed,
   resume,
   remainingSeconds,
+  reset,
+  resetting,
+  shownSize,
   sizeFor,
   splitMinutes,
   stepMinutes,
   turn,
+  zoomFor,
 } from "../src/app/timer.ts";
 
 const T0 = Date.UTC(2026, 2, 2, 9, 0, 0);
@@ -138,5 +148,68 @@ describe("a run halted by a tilt", () => {
     expect(resume(run, start)).toBe(run);
     const out = halt(turn(newRun(1), start), start + 61_000);
     expect(resume(out, start + 70_000)).toBe(out);
+  });
+});
+
+describe("a pinch", () => {
+  it("makes the glass bigger or smaller and leaves the length alone", () => {
+    for (const minutes of DURATIONS) {
+      expect(shownSize(minutes, 1)).toBeCloseTo(sizeFor(minutes), 12);
+    }
+    expect(shownSize(5, 1.5)).toBeCloseTo(sizeFor(5) * 1.5, 12);
+    expect(shownSize(5, 0.7)).toBeCloseTo(sizeFor(5) * 0.7, 12);
+  });
+
+  it("goes no further than the glass can be shown, so there is nothing to undo past the end", () => {
+    for (const minutes of DURATIONS) {
+      for (const zoom of [0.01, ZOOM_MIN, 1, ZOOM_MAX, 99]) {
+        const size = shownSize(minutes, zoom);
+        expect(size).toBeGreaterThanOrEqual(SHOWN_MIN - 1e-12);
+        expect(size).toBeLessThanOrEqual(SHOWN_MAX + 1e-12);
+        expect(zoomFor(minutes, zoom) * sizeFor(minutes)).toBeCloseTo(size, 12);
+      }
+    }
+    // A two-hour glass already fills its room: pinched out it grows only
+    // to the edge, and the first pinch back in shrinks it.
+    expect(zoomFor(120, ZOOM_MAX)).toBeCloseTo(SHOWN_MAX / sizeFor(120), 12);
+  });
+
+  it("is kept clamped, and an unreadable one is the length's own size", () => {
+    expect(clampZoom(1.7)).toBe(1.7);
+    expect(clampZoom(99)).toBe(ZOOM_MAX);
+    expect(clampZoom(0.01)).toBe(ZOOM_MIN);
+    expect(clampZoom("big")).toBe(1);
+    expect(clampZoom(-2)).toBe(1);
+    expect(clampZoom(null)).toBe(1);
+  });
+});
+
+describe("a reset", () => {
+  it("stands the glass still with all its sand in the lower bulb, its length kept", () => {
+    const start = Date.UTC(2026, 9, 2, 12);
+    const run = turn(newRun(20), start);
+    const back = reset(run);
+    expect(back).toEqual(newRun(20));
+    expect(isRunning(back, start + 5 * MIN)).toBe(false);
+    expect(passed(back, start + 60 * MIN)).toBe(1);
+    // Turned again, it runs its whole length.
+    const again = turn(back, start + 6 * MIN);
+    expect(passed(again, start + 16 * MIN)).toBeCloseTo(0.5, 9);
+  });
+
+  it("draws the rest of the sand down by the clock, quickly at first, all of it after RESET_MS", () => {
+    const at = Date.UTC(2026, 9, 2, 12);
+    expect(resetting(0.3, at, at)).toBeCloseTo(0.3, 12);
+    expect(resetting(0.3, at, at - 50)).toBeCloseTo(0.3, 12);
+    let last = 0.3;
+    for (let ms = 50; ms <= RESET_MS; ms += 50) {
+      const f = resetting(0.3, at, at + ms);
+      expect(f).toBeGreaterThan(last);
+      last = f;
+    }
+    expect(resetting(0.3, at, at + RESET_MS)).toBe(1);
+    expect(resetting(0.3, at, at + RESET_MS * 10)).toBe(1);
+    // More than half of it in the first third.
+    expect(resetting(0, at, at + RESET_MS / 3)).toBeGreaterThan(0.5);
   });
 });

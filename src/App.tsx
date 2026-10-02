@@ -63,15 +63,6 @@ export function App() {
   const persisted = useRun(settings.minutes);
   const [demoRunState, setDemoRun] = useState<Run>(() => demoRun(Date.now()));
   const run = DEMO ? demoRunState : persisted.run;
-  const turnNow = useCallback(() => {
-    if (DEMO)
-      setDemoRun((prev) => ({
-        ...prev,
-        fraction: 1 - prev.fraction,
-        startedAt: Date.now(),
-      }));
-    else persisted.turnNow();
-  }, [persisted]);
   const setRun = useCallback(
     (next: Run) => {
       if (DEMO) setDemoRun(next);
@@ -86,6 +77,7 @@ export function App() {
     },
     [update],
   );
+  const setZoom = useCallback((zoom: number) => update("zoom", zoom), [update]);
   const look = useMemo(
     () => resolveLook(settings.preset, settings.custom),
     [settings.preset, settings.custom],
@@ -243,14 +235,15 @@ export function App() {
             <Hourglass
               look={look}
               run={run}
+              zoom={settings.zoom}
               motion={motion}
               sky={settings.sky}
               place={place}
               haptics={settings.haptics}
               onPress={askMotion}
-              onTurn={turnNow}
               onRun={setRun}
               onMinutes={setMinutes}
+              onZoom={setZoom}
               onDone={onDone}
               className="min-h-0 flex-1"
             />

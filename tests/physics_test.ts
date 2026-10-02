@@ -22,7 +22,6 @@ import {
   setSpin,
   step,
   streamPath,
-  turnOver,
   wallAt,
   whirl,
 } from "../src/app/physics.ts";
@@ -39,6 +38,7 @@ import {
   volume,
   type Bulb,
 } from "../src/app/sand.ts";
+import { turnOver } from "../src/app/turnOver.ts";
 
 const shape = bulbShape(GLASS.teardrop, 0.41);
 const REPOSE = SAND.quartz.repose;
@@ -170,6 +170,55 @@ describe("grains in the air", () => {
     expect(Math.abs(volume(source) - sand) / sand).toBeLessThan(HAIR);
     // The drop was felt, hard.
     expect(buzzFor(source.hits)).toBeGreaterThan(20);
+  });
+
+  it("held on its side, lies along the wall level with the world, and keeps lying there turned past level", () => {
+    const b = bulb("plate");
+    const sand = capacity(b) * 0.4;
+    pileFill(b, sand);
+    // On its side, the right side down: the sand goes over to that wall.
+    setGravity(b, 1, 0, 0);
+    run(b, 3);
+    const side = heapCentre(b)[0];
+    expect(side).toBeGreaterThan(shape.radius * 0.4);
+    // The far side of the bulb is bare.
+    const far = Math.floor(b.m / 2);
+    for (let i = Math.floor(b.n / 2); i < b.n; i++) {
+      expect(b.height[i * b.m + far]! - b.floor[i]!).toBeLessThan(1e-6);
+    }
+    // Tipped ten degrees past level — sand on glass holds there — nothing
+    // is thrown, and the heap stays where it lies.
+    const r = (100 * Math.PI) / 180;
+    setGravity(b, Math.sin(r), -Math.cos(r), 0);
+    run(b, 1);
+    expect(airborne(b)).toBe(0);
+    expect(heapCentre(b)[0]).toBeCloseTo(side, 2);
+    expect(Math.abs(volume(b) - sand) / sand).toBeLessThan(HAIR);
+  });
+
+  it("turned over while on its side, keeps what lies along the wall where it lies: only what is at the ends falls", () => {
+    for (const mirror of [false, true]) {
+      const source = bulb("waist");
+      const sink = bulb("plate");
+      const sand = capacity(sink) * 0.4;
+      pileFill(sink, sand);
+      setGravity(sink, 1, 0, 0);
+      run(sink, 3);
+      const before = heapCentre(sink);
+      turnOver(source, sink, mirror);
+      // Most of it stays a heap, on the same side of the glass (the other
+      // side for a glass turned in the picture), at the same height.
+      expect(volume(source)).toBeGreaterThan(sand * 0.6);
+      const after = heapCentre(source);
+      expect(Math.sign(after[0])).toBe(mirror ? -1 : 1);
+      expect(Math.abs(after[0])).toBeCloseTo(Math.abs(before[0]), 1);
+      expect(after[1]).toBeCloseTo(shape.height - before[1], 1);
+      expect(Math.abs(total(source) - sand) / sand).toBeLessThan(HAIR);
+      setGravity(source, 0, -1, 0);
+      run(source, 3);
+      expect(source.air.count).toBe(0);
+      expect(Math.abs(volume(source) - sand) / sand).toBeLessThan(HAIR);
+    }
   });
 
   it("stays inside the glass while it flies", () => {

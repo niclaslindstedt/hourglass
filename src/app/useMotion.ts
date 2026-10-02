@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { useEffect, useMemo, useRef } from "react";
 
+import { WALL_FRICTION } from "./physics.ts";
+
 // Which way is down, how the phone turns and how hard it is shaken — read
 // off the phone, for the sand, the glass and the sky.
 //
@@ -15,9 +17,10 @@ import { useEffect, useMemo, useRef } from "react";
 // What the sand needs is gravity in the phone's own frame: `down`, x to the
 // right of the screen, y up it, z out of it toward the face — the three
 // shares of one g, from the orientation angles (`deviceDown`). Which way up
-// the glass is flips with a wide hysteresis — past a third of a right angle
-// beyond level, either way — so a phone carried flat does not turn its
-// glass over at every jolt. The lean is gravity across the glass over its
+// the glass is flips with a hysteresis — past the angle sand slides down
+// glass at, about eleven degrees beyond level, either way — so a phone
+// carried flat does not turn its glass over at every jolt, and a glass on
+// its side keeps its sand along the wall until it would really slide. The lean is gravity across the glass over its
 // share along it (`leanOf`), capped where a heap on a floor stops making
 // sense. A phone laid flat on a table leans its sand to the back of the
 // bulb, and goes on running: the run halts only on its side, where the hole
@@ -71,8 +74,12 @@ export type Reading = {
   heard: boolean;
 };
 
-/** How far past level, as sine, before the glass counts as turned. */
-export const FLIP_AT = 0.35;
+/** How far past level, as sine, before the glass counts as turned: the
+ *  angle sand starts to slide down glass at (`WALL_FRICTION`), about
+ *  eleven degrees. Held on its side the sand lies along the wall, and it
+ *  stays there until the glass is tipped this far past level, where it
+ *  lets go and runs to the other end. */
+export const FLIP_AT = Math.sin(Math.atan(WALL_FRICTION));
 
 /** The steepest lean the heaps are asked to hold, as a tangent: seventy
  *  degrees. Past it a glass is on its side. */

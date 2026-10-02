@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Place } from "./astronomy.ts";
 import { layoutOf, type Layout } from "./glass.ts";
-import { GLASS, SAND, type Look } from "./look.ts";
-import { glassLight, grainPattern, paintHourglass } from "./paint.ts";
+import { SAND, type Look } from "./look.ts";
+import { paintFlat } from "./paintFlat.ts";
 import {
   airborne,
   buzzFor,
@@ -15,7 +15,6 @@ import {
   step as stepSand,
   whirl,
   streamPath,
-  turnOver,
   type StreamPath,
 } from "./physics.ts";
 import { Stage } from "./render/stage.ts";
@@ -31,13 +30,15 @@ import {
   volume,
   type Bulb,
 } from "./sand.ts";
-import { PITCH, YAW } from "./scene.ts";
 import { bodiesFor, skyLookFor, type SkyChoice, type SkyLook } from "./sky.ts";
 import { useSprites } from "./sprites.ts";
+import { turnOver } from "./turnOver.ts";
+import { KEY_ZOOM, useZoom } from "./useZoom.ts";
 import { pageTurn, uprightDelta } from "./upright.ts";
 import {
   deviceToEarth,
   leanStops,
+  nextGravity,
   STOP_LEAN,
   type Gravity,
   type Motion,
@@ -48,8 +49,11 @@ import {
   halt,
   isRunning,
   passed,
+  reset,
+  RESET_MS,
+  resetting,
   resume,
-  sizeFor,
+  shownSize,
   splitMinutes,
   stepMinutes,
   turn,
@@ -72,6 +76,9 @@ import {
 // glass — and a bigger or a smaller one, because a glass that runs longer
 // holds more sand. A drag sideways turns it about its own axis, to see the
 // sand from another side; let go, it spins on and comes back to face you.
+// A pinch, or the wheel, makes it look bigger or smaller and leaves the
+// time alone. A long press resets it: the sand is drawn down into the
+// lower bulb, and the glass stands still until it is turned.
 //
 // The sand is the model in `sand.ts`, one heap per bulb, and what moves it
 // is the wall clock through `timer.ts`: every frame the top bulb is drained
@@ -95,30 +102,14 @@ import {
 /** How much of a bulb the sand fills. Measured: a little under half. */
 export const FILL = 0.45;
 
-/** Whether the page behind the glass is light, read off the theme's own
- *  background token: the flat painter's glass edges are drawn in shadow on
- *  a light page and in light on a dark one. */
-export function pageIsLight(): boolean {
-  try {
-    const bg = getComputedStyle(document.documentElement)
-      .getPropertyValue("--page-bg")
-      .trim();
-    const m = /^#([0-9a-f]{6})$/i.exec(bg);
-    if (!m) return false;
-    const n = parseInt(m[1]!, 16);
-    const luma =
-      (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-    return luma > 0.5;
-  } catch {
-    return false;
-  }
-}
-
 /** How long a turn takes on screen, how far a drag goes between two
  *  lengths, and how long the length shows. */
 const TURN_MS = 720;
 const DRAG_STEP_PX = 44;
 const LABEL_MS = 1600;
+
+/** How long a press is held, still, before it resets the glass, ms. */
+const LONG_PRESS_MS = 550;
 
 /** How far a sideways drag turns the glass, rad a pixel. */
 const ORBIT_PER_PX = 0.012;
@@ -133,6 +124,9 @@ const SKY_EVERY_MS = 5000;
 type Props = {
   look: Look;
   run: Run;
+  /** How much bigger or smaller than its length's own size the glass is
+   *  shown (`shownSize`). */
+  zoom: number;
   /** The phone's readings (`useMotion`). */
   motion: Motion;
   /** Which sky, and where the device is, for the sun and the moon. */
@@ -143,12 +137,15 @@ type Props = {
   /** A tap landed on the glass — at its end, the moment a phone will grant
    *  its sensors from. */
   onPress?: () => void;
-  /** The glass was turned. */
-  onTurn: () => void;
-  /** The run was halted or set going by a tilt: the new run, to keep. */
+  /** The run the glass now has — turned, halted or set going by a tilt,
+   *  or reset — to keep. Exactly the glass's own, so that the run coming
+   *  back as a prop is recognised as it and the heaps are not built again
+   *  from the clock. */
   onRun: (run: Run) => void;
   /** The glass was dragged to another length. */
   onMinutes: (minutes: number) => void;
+  /** The glass was pinched to another size: the zoom, to keep. */
+  onZoom: (zoom: number) => void;
   /** The sand has run out. */
   onDone: () => void;
   className?: string;
@@ -157,6 +154,10 @@ type Props = {
 /** A tap's turn: when it began, the run it turned, and whether the sand
  *  has been handed to the other ends yet (at the half turn). */
 type Flip = { start: number; from: Run; swapped: boolean };
+
+/** A reset under way: when it began, and the share of the sand that was
+ *  through then (`resetting`). */
+type Reset = { start: number; from: number };
 
 type Sim = {
   look: Look;
@@ -174,6 +175,7 @@ type Sim = {
   sand: number;
   run: Run;
   flip: Flip | null;
+  reset: Reset | null;
   /** Whether the frame stands the other way up: a tap's turn turns the
    *  frame with it and leaves it so, where the glass, the same either way
    *  up, is drawn upright again. */
@@ -206,14 +208,15 @@ function halfTurned(v: Vec3, swapped: boolean): Vec3 {
 export function Hourglass({
   look,
   run,
+  zoom,
   motion,
   sky,
   place,
   haptics,
   onPress,
-  onTurn,
   onRun,
   onMinutes,
+  onZoom,
   onDone,
   className,
 }: Props) {
@@ -236,8 +239,25 @@ export function Hourglass({
   const size = useRef({ w: 0, h: 0, dpr: 1 });
   const frame = useRef<number | null>(null);
   const labelTimer = useRef<number | null>(null);
-  const callbacks = useRef({ onPress, onTurn, onRun, onMinutes, onDone });
-  callbacks.current = { onPress, onTurn, onRun, onMinutes, onDone };
+  const callbacks = useRef({
+    onPress,
+    onRun,
+    onMinutes,
+    onZoom,
+    onDone,
+  });
+  callbacks.current = { onPress, onRun, onMinutes, onZoom, onDone };
+  // The pinch's zoom (`useZoom`), which wakes the loop it is drawn by.
+  const wakeRef = useRef<() => void>(() => {});
+  const wakeSoon = useCallback(() => wakeRef.current(), []);
+  const zoomer = useZoom(
+    zoom,
+    run.minutes,
+    (z: number) => callbacks.current.onZoom(z),
+    wakeSoon,
+    host,
+  );
+  const zoomNow = zoomer.now;
   const options = useRef({ sky, place, haptics });
   options.current = { sky, place, haptics };
 
@@ -265,6 +285,7 @@ export function Hourglass({
       sand,
       run: nextRun,
       flip: null,
+      reset: null,
       upended: previous?.upended ?? false,
       done: f >= 1,
       glow: 0,
@@ -292,6 +313,22 @@ export function Hourglass({
     },
     [],
   );
+
+  /** A reset, finished at once: whatever is still in the upper bulb
+   *  poured into the lower — for a glass turned over before the sand was
+   *  all down. */
+  const endReset = useCallback(() => {
+    const s = sim.current;
+    if (!s?.reset) return;
+    s.reset = null;
+    const rest = volume(s.source) + airborne(s.source);
+    if (rest > 1e-12) {
+      pour(s.sink, drain(s.source, rest));
+      s.source.air.count = 0;
+      settle(s.source);
+      settle(s.sink);
+    }
+  }, []);
 
   /** A tap's turn, finished: the run turned as of the tap. */
   const endFlip = useCallback(
@@ -337,21 +374,29 @@ export function Hourglass({
       dt,
     );
     stepView(s.view, s.view.gyro, dt, held);
+    // Which way up the glass is, as the sand feels it: off the eased
+    // gravity in the glass's own frame, with the sensor's hysteresis — so
+    // the sand is handed to the other ends when gravity, as the heaps
+    // feel it, has crossed to them, and not a moment before.
+    const along = -intoGlass(s.view, s.view.down)[1];
     if (reading.heard && !s.heard) {
       // The sensor's first word says which way up the phone already is:
       // the glass is drawn that way, and nothing has been turned.
       s.heard = true;
       s.gravity = reading.gravity;
+      s.view.down = [...reading.down];
       setUpside(reading.gravity === -1);
-    } else if (reading.heard && reading.gravity !== s.gravity) {
-      // Turned over with the phone: the run turns, and the sand falls to
-      // the other end. Nothing on the screen turns — it is the phone that
-      // moved.
+    } else if (reading.heard && nextGravity(s.gravity, along) !== s.gravity) {
+      // Turned over with the phone: the run turns, and the sand at the
+      // ends lets go and falls to the other — what lies along the side
+      // wall stays where it is. Nothing on the screen turns: it is the
+      // phone that moved.
       if (s.flip) endFlip(s.flip, now);
-      s.gravity = reading.gravity;
-      setUpside(reading.gravity === -1);
+      endReset();
+      s.gravity = s.gravity === 1 ? -1 : 1;
+      setUpside(s.gravity === -1);
       land(turn(s.run, now), now, false);
-      callbacks.current.onTurn();
+      callbacks.current.onRun(s.run);
     }
 
     // The gravity the sand feels, in the glass's own frame: the Earth's,
@@ -416,7 +461,7 @@ export function Hourglass({
     // again when the glass is stood up. Read off the steady orientation,
     // not the shake.
     const side = reading.heard ? reading.lean.x : 0;
-    if (!s.flip) {
+    if (!s.flip && !s.reset) {
       if (leanStops(side) && s.run.startedAt !== null) {
         s.run = halt(s.run, now);
         s.stopped = true;
@@ -435,13 +480,21 @@ export function Hourglass({
     // one the turn makes, as of the tap; the sand runs by it once it has
     // been handed over, the glass is within `STOP_LEAN` of standing and
     // the sand has reached the hole — so the stream starts in the turn.
+    // A reset draws the rest of the sand down quickly, by its own clock
+    // (`resetting`), and is over when it all is.
     let stream: StreamPath | null = null;
     const flowing = s.flip
       ? s.flip.swapped && feedsHole(s.source, STOP_LEAN)
       : true;
     const run = s.flip ? turn(s.flip.from, s.flip.start) : s.run;
+    const sucking = s.reset !== null;
+    if (s.reset && now - s.reset.start >= RESET_MS) s.reset = null;
     if (flowing) {
-      const f = passed(run, now);
+      const f = s.reset
+        ? resetting(s.reset.from, s.reset.start, now)
+        : sucking
+          ? 1
+          : passed(run, now);
       const target = s.sand * (1 - f);
       const d = volume(s.source) + airborne(s.source) - target;
       if (d > 1e-9) {
@@ -483,10 +536,11 @@ export function Hourglass({
     }
 
     const running =
-      flowing &&
-      isRunning(run, now) &&
-      volume(s.source) > 1e-9 &&
-      (!s.flip || stream !== null);
+      (sucking && stream !== null) ||
+      (flowing &&
+        isRunning(run, now) &&
+        volume(s.source) > 1e-9 &&
+        (!s.flip || stream !== null));
     if (s.glow > 0) s.glow = Math.max(0, s.glow - 0.004);
     const busy =
       moving(s.source) ||
@@ -505,7 +559,7 @@ export function Hourglass({
     }
 
     const room = Math.min(h * 0.86, w * 2.1);
-    const share = (room * sizeFor(s.run.minutes)) / h;
+    const share = (room * shownSize(s.run.minutes, zoomNow.current)) / h;
     if (stage.current) {
       stage.current.render({
         look: s.look,
@@ -522,7 +576,7 @@ export function Hourglass({
         drift: seconds * 0.004,
         seconds,
         size: share,
-        flow: running && !s.stopped ? 1 : 0,
+        flow: running && (!s.stopped || sucking) ? 1 : 0,
         glow: s.glow,
         stream,
       });
@@ -532,75 +586,30 @@ export function Hourglass({
       // and so is its frame, the other way up.
       const angle = swapped ? flipAngle - Math.PI : flipAngle;
       const upended = s.upended !== swapped;
-      paintFlat(el, s, w, h, dpr, angle, upended, share, running, seconds);
+      paintFlat(el, s, spritesRef.current, {
+        w,
+        h,
+        dpr,
+        angle,
+        upended,
+        share,
+        running,
+        seconds,
+      });
     }
     // Said once a frame is up, for whatever waits on the picture (the
     // screenshot skill); not read by the app.
     if (host.current && !host.current.dataset.drawn)
       host.current.dataset.drawn = "1";
     return (
-      running || s.flip !== null || s.glow > 0 || busy || reading.shake > 0
+      running ||
+      s.flip !== null ||
+      s.reset !== null ||
+      s.glow > 0 ||
+      busy ||
+      reading.shake > 0
     );
-  }, [land, endFlip]);
-
-  /** The flat painter, where there is no WebGL: the picture the app drew
-   *  before it had a stage, from the same heaps. */
-  function paintFlat(
-    el: HTMLCanvasElement,
-    s: Sim,
-    w: number,
-    h: number,
-    dpr: number,
-    angle: number,
-    upended: boolean,
-    share: number,
-    running: boolean,
-    seconds: number,
-  ): void {
-    const ctx = el.getContext("2d");
-    if (!ctx) return;
-    const scale = h * share;
-    const light = pageIsLight();
-    const sp = spritesRef.current;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-    if (angle !== 0) {
-      ctx.translate(w / 2, h / 2);
-      ctx.rotate(angle);
-      ctx.translate(-w / 2, -h / 2);
-    }
-    const lean = Math.cos(angle);
-    paintHourglass(ctx, {
-      cam: {
-        pitch: PITCH * lean,
-        yaw: YAW * lean,
-        scale,
-        cx: w / 2,
-        cy: h / 2,
-      },
-      look: s.look,
-      layout: s.layout,
-      source: s.source,
-      sink: s.sink,
-      gravity: s.gravity,
-      tilt: s.sink.tilt[0],
-      shake: s.source.give,
-      flow: running ? 1 : 0,
-      t: seconds,
-      glow: s.glow,
-      dpr,
-      grain: grainPattern(ctx, SAND[s.look.sand], dpr, sp?.grain ?? null),
-      glassLight:
-        angle === 0 && !(sp?.glassAdd && sp.glassMultiply)
-          ? glassLight(s.layout, GLASS[s.look.glass], scale, PITCH, dpr, light)
-          : null,
-      light,
-      sprites: sp,
-      upended,
-    });
-    ctx.restore();
-  }
+  }, [land, endFlip, endReset, zoomNow]);
 
   // The loop: runs while something moves, and stops when nothing does.
   const loop = useCallback(
@@ -617,27 +626,24 @@ export function Hourglass({
       frame.current = requestAnimationFrame(loop);
     }
   }, [loop]);
+  wakeRef.current = wake;
 
   // The glass changes: another look, or another length — both a new glass,
   // built cold from the clock. A run that changed under us in any other way
-  // but a turn (the settings, a reload) is adopted cold as well.
+  // (the settings, a reload) is adopted cold as well; one that says the
+  // same sand is through as ours does — ours, handed back (`onRun`), or
+  // laid to rest as it runs out — is taken as it is, and the heaps stay
+  // where they lie. In a tap's turn the run is already the turned one.
   useEffect(() => {
     const s = sim.current;
     const now = Date.now();
-    const turned =
-      s !== null &&
-      s.run !== run &&
-      run.startedAt !== null &&
-      Math.abs(passed(s.run, now) - (1 - run.fraction)) < 1e-6;
-    const ours =
-      s !== null &&
-      s.run.fraction === run.fraction &&
-      s.run.startedAt === run.startedAt;
+    const same =
+      s !== null && Math.abs(passed(s.run, now) - passed(run, now)) < 1e-6;
     if (
       !s ||
       s.look !== look ||
       s.run.minutes !== run.minutes ||
-      (!s.flip && !turned && !ours && s.run.startedAt !== run.startedAt)
+      (!s.flip && !same)
     ) {
       build(look, run, now);
     } else if (!s.flip) {
@@ -742,9 +748,27 @@ export function Hourglass({
 
   const turnOverNow = useCallback(() => {
     const s = sim.current;
-    if (!s || s.flip) return;
-    s.flip = { start: Date.now(), from: s.run, swapped: false };
-    callbacks.current.onTurn();
+    if (!s || s.flip || s.reset) return;
+    const start = Date.now();
+    s.flip = { start, from: s.run, swapped: false };
+    callbacks.current.onRun(turn(s.run, start));
+    wake();
+  }, [wake]);
+
+  /** Reset the glass: the sand drawn down into the lower bulb over
+   *  `RESET_MS`, and the run standing still with all of it there. The run
+   *  is kept at once, so a glass closed mid-reset opens reset. */
+  const resetNow = useCallback(() => {
+    const s = sim.current;
+    if (!s || s.flip || s.reset) return;
+    const now = Date.now();
+    s.reset = { start: now, from: passed(s.run, now) };
+    s.run = reset(s.run);
+    s.stopped = false;
+    s.done = true;
+    s.glow = 0;
+    callbacks.current.onRun(s.run);
+    if (options.current.haptics) vibrate(12);
     wake();
   }, [wake]);
 
@@ -759,6 +783,18 @@ export function Hourglass({
     [showLabel],
   );
 
+  // Every finger on the glass, for the pinch; the first one is the press.
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ from: number; zoom: number } | null>(null);
+  const longPress = useRef<number | null>(null);
+  const stopLongPress = () => {
+    if (longPress.current !== null) window.clearTimeout(longPress.current);
+    longPress.current = null;
+  };
+  const spread = (): number => {
+    const [a, b] = [...fingers.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
   const press = useRef<{
     id: number;
     x: number;
@@ -768,12 +804,26 @@ export function Hourglass({
     orbiting: boolean;
     orbitFrom: number;
     orbit: number;
+    /** Spent on something other than a tap: a pinch, or a reset. */
+    spent: boolean;
   } | null>(null);
   const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     const s = sim.current;
     if (!s) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.current.size === 2) {
+      // A second finger: a pinch, and the press is no longer a tap, a
+      // drag or a hold.
+      stopLongPress();
+      if (press.current) press.current.spent = true;
+      const from = zoomer.begin("pointers");
+      pinch.current = from === null ? null : { from: spread(), zoom: from };
+      wake();
+      return;
+    }
+    if (fingers.current.size > 2) return;
     press.current = {
       id: e.pointerId,
       x: e.clientX,
@@ -783,12 +833,32 @@ export function Hourglass({
       orbiting: false,
       orbitFrom: s.view.orbit,
       orbit: s.view.orbit,
+      spent: false,
     };
+    stopLongPress();
+    longPress.current = window.setTimeout(() => {
+      longPress.current = null;
+      const p = press.current;
+      if (!p || p.dragging || p.orbiting || p.spent) return;
+      p.spent = true;
+      resetNow();
+    }, LONG_PRESS_MS);
     wake();
   };
   const onPointerMove = (e: PointerEvent) => {
+    if (fingers.current.has(e.pointerId)) {
+      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    const pin = pinch.current;
+    if (pin) {
+      const d = spread();
+      if (pin.from > 0 && d > 0) {
+        zoomer.pinch("pointers", pin.zoom * (d / pin.from));
+      }
+      return;
+    }
     const p = press.current;
-    if (!p || p.id !== e.pointerId) return;
+    if (!p || p.id !== e.pointerId || p.spent) return;
     // In the page's own frame: a page turned back against the screen
     // (`upright.ts`) is dragged along its own length, not the screen's.
     const [dx, down] = uprightDelta(
@@ -800,6 +870,7 @@ export function Hourglass({
     if (!p.dragging && !p.orbiting) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) p.dragging = true;
       else if (Math.abs(dx) > 8) p.orbiting = true;
+      if (p.dragging || p.orbiting) stopLongPress();
     }
     if (p.orbiting) {
       // Sideways: the glass turns about its own axis under the finger.
@@ -813,30 +884,40 @@ export function Hourglass({
     if (s && next !== s.run.minutes) callbacks.current.onMinutes(next);
     showLabel(next);
   };
-  const onPointerUp = (e: PointerEvent) => {
+  /** A finger off the glass: the end of a pinch (kept), or of a press —
+   *  a tap if it was nothing else. */
+  const lift = (id: number, tap: boolean) => {
+    fingers.current.delete(id);
+    if (pinch.current) {
+      if (fingers.current.size < 2) {
+        pinch.current = null;
+        zoomer.end("pointers");
+      }
+    }
     const p = press.current;
-    if (!p || p.id !== e.pointerId) return;
+    if (!p || (p.id !== id && fingers.current.size > 0)) return;
     press.current = null;
-    if (!p.dragging && !p.orbiting) turnOverNow();
+    stopLongPress();
+    if (tap && !p.dragging && !p.orbiting && !p.spent) turnOverNow();
     wake();
   };
-  const onPointerCancel = () => {
-    press.current = null;
-  };
+  const onPointerUp = (e: PointerEvent) => lift(e.pointerId, true);
+  const onPointerCancel = (e: PointerEvent) => lift(e.pointerId, false);
   // The end of a tap, which Safari counts as a gesture (a press's start is
   // not): where a phone's sensors are asked for.
   const onClick = () => {
     callbacks.current.onPress?.();
   };
-  const onWheel = (e: WheelEvent) => {
-    if (e.deltaY === 0) return;
-    e.preventDefault();
-    step(e.deltaY < 0 ? 1 : -1);
-  };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       turnOverNow();
+    } else if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      resetNow();
+    } else if (e.key === "+" || e.key === "=" || e.key === "-") {
+      e.preventDefault();
+      zoomer.nudge(e.key === "-" ? 1 / KEY_ZOOM : KEY_ZOOM);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       step(1);
@@ -874,7 +955,8 @@ export function Hourglass({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
       onClick={onClick}
-      onWheel={onWheel}
+      onContextMenu={(e) => e.preventDefault()}
+      onWheel={zoomer.onWheel}
       onKeyDown={onKeyDown}
     >
       <canvas
