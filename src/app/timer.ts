@@ -60,7 +60,7 @@ export function sizeFor(minutes: number): number {
 export const ZOOM_MIN = 0.4;
 export const ZOOM_MAX = 2.5;
 export const SHOWN_MIN = 0.2;
-export const SHOWN_MAX = 1.08;
+export const SHOWN_MAX = 1;
 
 /** A stored zoom, clamped: an unreadable one is the length's own size. */
 export function clampZoom(value: unknown): number {
