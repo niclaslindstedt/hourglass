@@ -35,6 +35,17 @@ still down. If it was refused, allow it under the browser's site settings
 (or the phone's Settings for the app) and tap again. A desktop has no
 sensor, and the glass turns by tap alone.
 
+**The screen turns sideways for a moment when I turn the phone.** The page
+never turns with the phone — it is turned back the moment the browser has
+rotated it — but on an iPhone a web page, in Safari or added to the Home
+Screen, cannot stop the browser from rotating it first: iOS ignores a web
+app's portrait lock and offers a page no way to ask for one, so the
+system's own rotation plays before the page hears of it. The App Store app
+and an Android install are held to portrait and never do this. On an
+iPhone, turn on **Portrait Orientation Lock** in Control Center: the screen
+then stays put, and the glass still turns with the phone, because the
+motion sensors do not depend on the screen turning.
+
 **The sand stopped when I tilted the phone.** Past sixty degrees to a side
 the hole is not fed, as in a real glass on its side; stand the phone up and
 the run goes on from where it was, the pause not counted. A phone leaned

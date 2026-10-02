@@ -22,7 +22,8 @@ import { glassLight, grainPattern, paintHourglass } from "./paint.ts";
 import { useSprites } from "./sprites.ts";
 import { capacity, createBulb, funnelFill, pileFill } from "./sand.ts";
 import { PITCH, YAW } from "./scene.ts";
-import { FILL, pageIsLight } from "./Hourglass.tsx";
+import { FILL } from "./Hourglass.tsx";
+import { pageIsLight } from "./paintFlat.ts";
 
 // The settings' hourglass picker: ten presets and an eleventh card, Custom,
 // that takes the glass apart.

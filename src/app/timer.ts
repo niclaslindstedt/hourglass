@@ -53,6 +53,36 @@ export function sizeFor(minutes: number): number {
   return SIZE_MIN + (SIZE_MAX - SIZE_MIN) * Math.min(1, Math.max(0, f));
 }
 
+/** How far a pinch or the wheel can make a glass bigger or smaller than
+ *  its length's own size, as a factor of it, and the smallest and the
+ *  largest share of the room a glass is ever drawn at. A pinch changes how
+ *  big the glass looks and nothing else: the length, and the run, stay. */
+export const ZOOM_MIN = 0.4;
+export const ZOOM_MAX = 2.5;
+export const SHOWN_MIN = 0.2;
+export const SHOWN_MAX = 1;
+
+/** A stored zoom, clamped: an unreadable one is the length's own size. */
+export function clampZoom(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, n));
+}
+
+/** The zoom a glass of `minutes` can actually be shown at: past where it
+ *  would be drawn smaller than `SHOWN_MIN` or bigger than `SHOWN_MAX`, a
+ *  pinch has nothing left to give, and is not kept going. */
+export function zoomFor(minutes: number, zoom: number): number {
+  const own = sizeFor(minutes);
+  return Math.min(SHOWN_MAX / own, Math.max(SHOWN_MIN / own, clampZoom(zoom)));
+}
+
+/** How big a glass of `minutes` is drawn, zoomed by `zoom`, as a share of
+ *  the room it has: its length's size (`sizeFor`), times the zoom. */
+export function shownSize(minutes: number, zoom: number): number {
+  return sizeFor(minutes) * zoomFor(minutes, zoom);
+}
+
 /** A length as hours and minutes, for the label. */
 export function splitMinutes(minutes: number): {
   hours: number;
@@ -109,6 +139,26 @@ export function turn(run: Run, now: number): Run {
  *  and no clock. */
 export function halt(run: Run, now: number): Run {
   return { minutes: run.minutes, fraction: passed(run, now), startedAt: null };
+}
+
+/** How long a reset takes to draw the sand down into the lower bulb, ms. */
+export const RESET_MS = 900;
+
+/** The glass reset: all its sand in the lower bulb and standing still,
+ *  the way one is picked up off a shelf — a tap turns it and it runs its
+ *  whole length. */
+export function reset(run: Run): Run {
+  return newRun(run.minutes);
+}
+
+/** Where the sand stands `now` while a reset begun at `at` draws it down
+ *  from `from` (the share already through then): the rest of it pulled
+ *  through quickly at first and gently at the end, and all of it through
+ *  after `RESET_MS`. */
+export function resetting(from: number, at: number, now: number): number {
+  const p = Math.min(1, Math.max(0, (now - at) / RESET_MS));
+  const eased = 1 - (1 - p) ** 3;
+  return from + (1 - from) * eased;
 }
 
 /** A halted run set going again from where it stands — a glass stood up

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it } from "vitest";
 
+import { WALL_FRICTION } from "../src/app/physics.ts";
 import {
+  FLIP_AT,
   MAX_LEAN,
   STOP_LEAN,
   deviceDown,
@@ -41,15 +43,22 @@ describe("gravity from the phone", () => {
     expect(slant.across).toBeCloseTo(0.5, 6);
   });
 
-  it("turns only well past level, and only once, either way", () => {
+  it("turns only past level, and only once, either way", () => {
     expect(nextGravity(1, 0.9)).toBe(1);
     expect(nextGravity(1, 0)).toBe(1);
-    expect(nextGravity(1, -0.2)).toBe(1);
+    expect(nextGravity(1, -0.15)).toBe(1);
     expect(nextGravity(1, -0.5)).toBe(-1);
     expect(nextGravity(-1, -0.9)).toBe(-1);
-    expect(nextGravity(-1, 0.2)).toBe(-1);
+    expect(nextGravity(-1, 0.15)).toBe(-1);
     expect(nextGravity(-1, 0.5)).toBe(1);
     expect(nextGravity(-1, null)).toBe(-1);
+  });
+
+  it("turns where sand starts to slide down the glass: about eleven degrees past level", () => {
+    const past = (deg: number) => -Math.sin((deg * Math.PI) / 180);
+    expect(nextGravity(1, past(10))).toBe(1);
+    expect(nextGravity(1, past(12))).toBe(-1);
+    expect(Math.asin(FLIP_AT)).toBeCloseTo(Math.atan(WALL_FRICTION), 9);
   });
 });
 

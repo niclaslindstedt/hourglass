@@ -141,12 +141,21 @@ other direction.
 The phone is the glass. `useMotion.ts` reads gravity in the phone's own
 frame — x to the right of the screen, y up it, z out of it — from the
 orientation angles (`deviceDown`), and which way up the glass is flips only
-past a wide margin either side of level. Gravity, less the phone's own
+past a margin either side of level: the angle sand starts to slide down
+glass at (`FLIP_AT`, sin(atan `WALL_FRICTION`), about eleven degrees). The
+glass decides it off gravity as the heaps feel it — the eased reading, in
+the glass's frame (`Hourglass.tsx`) — so the sand is handed to the other
+ends only once gravity has crossed to them. Gravity, less the phone's own
 acceleration, is taken into the glass's frame as it hangs (`intoGlass`) and
 handed to both heaps (`setGravity`), which read their lean off it: to a side,
 the heaps slide that way; leaned back or forward, to the back or the front
-wall of the bulb. The lean is capped as a whole at seventy degrees, where a
-heap would stand against the wall and a heightfield cannot say so. The
+wall of the bulb. The lean goes to eighty-eight degrees: a glass on its
+side has its sand along the side wall, and the heights say so as columns
+full from end to end on the low side and bare on the high one, a surface
+standing almost along the axis, level with the world. Past level, before
+the glass counts as turned, the lean stays at its steepest, and the sand
+stays along the wall — sand on glass holds there until it is tipped past
+its friction angle, which is where the turn comes. The
 stream follows the grains (`streamPath`): they leave the bore at about
 √(g·D), falling freely from the "free-fall arch" that stands about a hole's
 width over an orifice, and fly under the gravity the glass feels. Upright,
@@ -196,7 +205,11 @@ holds slides back; what does not stays up the glass, as sand does.
 
 **Turning over** (`turnOver`) lets each heap go of the end it rested
 against: its sand becomes grains, four a cell, that fall to the other end as a
-body and land in a scatter the flow then brings to its angle. A tap turns
+body and land in a scatter the flow then brings to its angle. A column full
+from end to end — the sand along the side wall of a glass turned slowly
+over onto its side — has nowhere to fall: it is the same column read from
+the other end, and stays as it is, so a slow turn hands the heap over
+without a grain in the air. A tap turns
 the picture half a turn about the axis into the screen, so the grains are
 mirrored left for right; a phone turned over is the same glass in the same
 place, and nothing crosses over.

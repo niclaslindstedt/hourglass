@@ -18,8 +18,9 @@ src/app/
   glass.ts          a glass's profile as a curve, and a bulb's shape read both ways        (pure)
   sand.ts           a bulb's sand as cells: fill, drain, pour, relax, settle; a lean       (pure, clock-free)
   physics.ts        the sand in motion: the flowing layer, the grains in the air, a toss,
-                    a turn-over, the hits on the glass and the buzz they make               (pure, clock-free)
-  timer.ts          how long a glass runs, how big it is, and where a run stands           (pure, clock-free)
+                    the hits on the glass and the buzz they make                            (pure, clock-free)
+  turnOver.ts       a turn-over: each heap let go as grains, its full columns kept         (pure, clock-free)
+  timer.ts          how long a glass runs, how big it is (and a pinch's zoom), where a run stands, a reset (pure, clock-free)
   view.ts           how the glass hangs in the phone: the lag, the finger's orbit, the eased follow   (pure, clock-free)
   astronomy.ts      where the sun and the moon stand, the moon's phase, their light; a time zone's place (pure)
   zones.ts          every IANA time zone's city, lat/lon — generated from the tz database's zone.tab
@@ -35,7 +36,9 @@ src/app/
   paint.ts          the flat picture, back to front: the table, the plates, the posts, the order
   paintGlass.ts     the flat glass: its outline, its back wall, its front wall and the light on it
   paintSand.ts      the flat sand: the facets, the grain, the clinging grains, the stream
-  Hourglass.tsx     the glass on the screen: the loop, the turn, the drags, the phone, the sky, the buzz
+  paintFlat.ts      one whole flat-painted frame, turned as a tap's turn has it; whether the page is light
+  Hourglass.tsx     the glass on the screen: the loop, the turn, the drags, the hold, the phone, the sky, the buzz
+  useZoom.ts        the pinch, the wheel, + and −: how big the glass is drawn, kept once a gesture rests
   HourglassPicker.tsx  the preset cards (flat-painted) and the Custom chips in Settings
   useMotion.ts      the phone's readings: gravity in its frame, the lean, the jerk, the spin, the angles
   useRun.ts         the run, persisted per device

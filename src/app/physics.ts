@@ -3,7 +3,6 @@ import {
   AIR_CAP,
   capacity,
   cellAt,
-  clear,
   holds,
   leanTo,
   levelApex,
@@ -119,15 +118,34 @@ const RESTITUTION = 0.3;
 /** How much of a hit on the heap (rather than the glass) is felt. */
 const SOFT = 0.25;
 
+/** The pull away from the floor, in g, that throws the heap up: past
+ *  what a glass merely held tipped beyond level pulls before it is
+ *  turned over (`FLIP_AT` in `useMotion.ts`, a fifth of one g) — that
+ *  much the sand on the glass holds by friction — so only a jerk does. */
+const TOSS_AT = 0.25;
+
 /** How deep a layer of sand one g of pull away from the floor throws up. */
 const LIFT = 0.02;
 
-/** The steepest lean gravity is read at, as a tangent: seventy degrees.
- *  Past it the heap would stand against a wall, which the heights cannot
- *  say. */
-const MAX_LEAN = Math.tan((70 * Math.PI) / 180);
+/** The steepest lean gravity is read at, as a tangent: eighty-eight
+ *  degrees. A glass held on its side has its sand lying along the side
+ *  wall, and the heights say that as columns full from end to end on the
+ *  low side and empty on the high one — a surface standing almost along
+ *  the axis, level with the world. Held there it stays level as the glass
+ *  goes on round, rather than turning with it, until the glass is tipped
+ *  far enough past level to turn the run (`FLIP_AT` in `useMotion.ts`). */
+const MAX_LEAN = Math.tan((88 * Math.PI) / 180);
 
-const EPS = 1e-13;
+/** The steepest a spinning heap's bowl is stood up the wall: seventy
+ *  degrees, as a tangent. */
+const BOWL_STEEPEST = Math.tan((70 * Math.PI) / 180);
+
+/** The weakest pull along the axis a lean is read against, in g: under
+ *  it — a glass on its side, or one tipped past level that has not yet
+ *  been turned — the lean is the steepest there is. */
+const ALONG_MIN = 1 / MAX_LEAN;
+
+export const EPS = 1e-13;
 
 /** A repeatable number in 0..1 for a seed. */
 function hash(seed: number): number {
@@ -164,7 +182,7 @@ export function setGravity(
     gz += spin.base[2];
   }
   bulb.g = [gx, gy, gz];
-  const along = Math.max(0.2, -gy);
+  const along = Math.max(ALONG_MIN, -gy);
   let tx = gx / along;
   let tz = gz / along;
   const t = Math.hypot(tx, tz);
@@ -174,13 +192,13 @@ export function setGravity(
   }
   // The sand's own spin makes a bowl of a level surface: the pull out from
   // the axis over gravity along it.
-  const bowl = (bulb.whirl * bulb.whirl) / (along * G);
+  const bowl = (bulb.whirl * bulb.whirl) / (Math.max(0.2, along) * G);
   if (
     Math.abs(tx - bulb.tilt[0]) > 1e-3 ||
     Math.abs(tz - bulb.tilt[1]) > 1e-3 ||
     Math.abs(bowl - bulb.bowl) > 1e-3 * (1 + bulb.bowl)
   ) {
-    leanTo(bulb, tx, tz, bowl, MAX_LEAN);
+    leanTo(bulb, tx, tz, bowl, BOWL_STEEPEST);
   }
 }
 
@@ -634,7 +652,7 @@ export function toss(bulb: Bulb, seed: number): number {
     if (pull < -0.2) bulb.thrown = false;
     return 0;
   }
-  if (bulb.thrown || pull < 0.1) return 0;
+  if (bulb.thrown || pull < TOSS_AT) return 0;
   bulb.thrown = true;
   const { n, m, area, floor, height, centre } = bulb;
   let thrown = 0;
@@ -672,12 +690,12 @@ export function toss(bulb: Bulb, seed: number): number {
 
 /** How many grains a cell of the heap lets go as: enough that a falling
  *  heap reads as sand rather than as pebbles, few enough to fly them all. */
-const PER_CELL = 4;
+export const PER_CELL = 4;
 
 /** A point in cell (`i`, `a`), somewhere across it rather than at its
  *  centre — drawn from `seed` — so a heap that lets go falls as a scatter
  *  and not as the grid it was kept in. */
-function inCell(
+export function inCell(
   bulb: Bulb,
   i: number,
   a: number,
@@ -735,75 +753,6 @@ export function letGo(bulb: Bulb): number {
     }
   }
   return gone;
-}
-
-/**
- * Turn the glass over: the heap in each bulb lets go of the end it rested
- * against and falls to the other, which is where the other bulb's role
- * now rests. `a` and `b` swap their sand — `a`'s falls into `b`'s frame
- * and `b`'s into `a`'s — as grains, `PER_CELL` a cell, so the heap drops as a
- * body and lands in a scatter the flow then brings to its angle.
- *
- * `mirror` is for a glass turned in the picture — half a turn about the
- * axis into the screen, so what was on the right is on the left. A glass
- * turned with the phone is the same glass in the same place on the screen,
- * only upside down, and nothing crosses over.
- */
-export function turnOver(a: Bulb, b: Bulb, mirror = true): void {
-  const fromA = grainsOf(a);
-  const fromB = grainsOf(b);
-  clear(a);
-  clear(b);
-  place(b, fromA, mirror);
-  place(a, fromB, mirror);
-}
-
-type Grain = [number, number, number, number, number, number, number];
-
-/** The sand of a bulb as grains in its own frame: the heap, `PER_CELL` a
- *  cell, and whatever is already in the air. */
-function grainsOf(bulb: Bulb): Grain[] {
-  const out: Grain[] = [];
-  const { n, m, area, floor, height, air } = bulb;
-  for (let i = 0; i < n; i++) {
-    const cell = area[i]! / m;
-    for (let a = 0; a < m; a++) {
-      const k = i * m + a;
-      const depth = height[k]! - floor[i]!;
-      if (depth <= EPS) continue;
-      const part = (depth * cell) / PER_CELL;
-      for (let j = 0; j < PER_CELL; j++) {
-        const [x, z] = inCell(bulb, i, a, k + j / PER_CELL);
-        const y = floor[i]! + (depth * (j + 0.5)) / PER_CELL;
-        out.push([x, y, z, 0, 0, 0, part]);
-      }
-    }
-  }
-  for (let k = 0; k < air.count; k++) {
-    out.push([
-      air.x[k]!,
-      air.y[k]!,
-      air.z[k]!,
-      air.vx[k]!,
-      air.vy[k]!,
-      air.vz[k]!,
-      air.vol[k]!,
-    ]);
-  }
-  return out;
-}
-
-/** Grains from the other end of the glass into this bulb's frame: the
- *  heights read from the other end, and — turned in the picture — right
- *  and left swapped. */
-function place(bulb: Bulb, grains: Grain[], mirror: boolean): void {
-  const H = bulb.shape.height;
-  const k = mirror ? -1 : 1;
-  for (const [x, y, z, vx, vy, vz, vol] of grains) {
-    const X = k * x;
-    const Y = H - y;
-    if (!launch(bulb, X, Y, z, k * vx, -vy, vz, vol)) pour(bulb, vol, X, z);
-  }
 }
 
 /**

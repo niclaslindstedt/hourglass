@@ -24,8 +24,10 @@ The screen, and the whole app.
 - **Its size.** A longer glass is a bigger glass: a one-minute glass takes a
   little under half the height of the screen and a two-hour one all of it,
   on a log scale, so the step from one minute to two grows the glass more than
-  the step from ninety to a hundred and twenty. The glass is centred, and
-  nothing else on the screen moves when it changes.
+  the step from ninety to a hundred and twenty. A pinch, or the wheel on a
+  desk, makes the glass bigger or smaller than that without touching the
+  time (see below); the size is kept for the next time. The glass is
+  centred, and nothing else on the screen moves when it changes.
 - **The length**, for a moment, while it is being changed — the only figure
   on the screen. There is no countdown: the glass says how far along it is
   the way an hourglass does.
@@ -60,8 +62,20 @@ The screen, and the whole app.
 - **Drag** up or down on the glass and it becomes a longer or a shorter one,
   one length on the list per step: 1 to 10 minutes by the minute, then 15,
   20, 25, 30, 45, 60, 90 and 120. A new length is a new glass, standing with
-  its sand run out. On a desk the wheel and the up and down arrow keys do the
-  same, and `Space` or `Enter` turns it over.
+  its sand run out. On a desk the up and down arrow keys do the same, and
+  `Space` or `Enter` turns it over.
+- **Pinch** the glass — two fingers on a phone, the trackpad on a desk — or
+  roll the **wheel** over it, and it grows or shrinks to the size you like:
+  a pinch is a size and nothing else, so the length, and the sand, stay as
+  they are. On a desk `+` and `−` do the same. It grows no bigger than the
+  room it stands in and shrinks no smaller than a fifth of it, and is kept
+  from one visit to the next.
+- **Hold** a finger on the glass, still, for a little over half a second,
+  and it resets: the sand left in the upper bulb is drawn down through the
+  waist in a rush, and the glass stands still with all of it in the lower
+  bulb — the way one is picked up off a shelf — until a tap turns it over
+  and it runs its whole length. On a desk `Backspace` or `Delete` does the
+  same.
 - **Drag sideways** and the glass turns about its own axis, to see the sand
   from another side; let go and it spins on, slows and comes back to face
   you. The left and right arrow keys nudge it. The sand is dragged round
@@ -74,9 +88,15 @@ The screen, and the whole app.
   the glass. The bulb that is now lower on the phone is the one the sand
   runs into, the stream runs up the screen, and a tap or a drag works
   exactly as before. The sky stays level with the world, so it is the right
-  way up to you. The sensor decides which way is down with a wide margin
-  either side of level, so a phone carried flat does not turn its glass at
-  every jolt.
+  way up to you. Turned slowly, round in your hand the way an hourglass is
+  turned, the sand goes with it the whole way: it slides over to the side
+  of the glass that is going down and lies along it, level with the world,
+  as the phone comes onto its side; it stays there a little way past level
+  — sand holds on glass until it is tipped about eleven degrees past — and
+  then lets go and slides to the other end, what lay along the wall staying
+  where it lay. Turned quickly, it falls to the other end as grains and
+  lands. The margin either side of level is that same eleven degrees, so a
+  phone carried flat does not turn its glass at every jolt.
 - **Tilt the phone** and the sand leans with it — to either side, or, leaned
   back or forward, to the back or the front of the bulb: the heaps slide
   that way. The stream bends toward the slant, meets the glass just under

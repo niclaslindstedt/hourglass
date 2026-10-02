@@ -3,7 +3,7 @@ import { useCallback, useEffect } from "react";
 
 import { useLocalStorageState } from "@niclaslindstedt/oss-framework/hooks";
 
-import { clampRun, halt, isRunning, newRun, turn, type Run } from "./timer.ts";
+import { clampRun, halt, isRunning, newRun, type Run } from "./timer.ts";
 
 // Where the sand is, kept across reloads: the run is a few numbers read
 // against the wall clock (`timer.ts`), so a glass turned over and then
@@ -23,15 +23,11 @@ export function useRun(minutes: number) {
     if (run.minutes !== minutes) setRun(newRun(minutes));
   }, [minutes, run.minutes, setRun]);
 
-  const turnNow = useCallback(() => {
-    setRun((prev) => turn(prev, Date.now()));
-  }, [setRun]);
-
   const finish = useCallback(() => {
     setRun((prev) =>
       isRunning(prev, Date.now()) ? prev : halt(prev, Date.now()),
     );
   }, [setRun]);
 
-  return { run, turnNow, finish, setRun };
+  return { run, finish, setRun };
 }

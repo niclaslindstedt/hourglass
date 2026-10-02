@@ -24,8 +24,8 @@ export const en = {
   // The hourglass itself: what a press does, and what it says to a screen
   // reader.
   glass: {
-    aria: "The hourglass, {state}. Press to turn it over; drag up or down to change how long it runs; drag sideways, or use the left and right arrows, to turn it round.",
-    hint: "Press to turn it over. Drag up or down to make it a longer or a shorter glass, sideways to turn it round.",
+    aria: "The hourglass, {state}. Press to turn it over; hold, or press Backspace, to reset it; drag up or down to change how long it runs; drag sideways, or use the left and right arrows, to turn it round; pinch, scroll, or press plus and minus to make it bigger or smaller.",
+    hint: "Press to turn it over, hold to reset it. Drag up or down to make it a longer or a shorter glass, sideways to turn it round. Pinch or scroll to make it bigger or smaller.",
     running: "running",
     paused: "standing still",
     done: "run out",
